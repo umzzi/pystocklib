@@ -64,7 +64,9 @@ if __name__ == "__main__":
     #k = reader.get_5years_earning_rate()
     #print(get_disparity("005930", k, w=0.3))
 
-    print(estimate_price("023460", k))
+    #print(estimate_price("023460", k))
 
 
 
+def printf(format, *values):
+    print(format % values )

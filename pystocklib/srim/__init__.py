@@ -15,29 +15,45 @@ def estimate_company_value(code, k, w=1):
 
     if w == 1:
         value = net_worth + (net_worth * (roe - k)) / k
+    elif w == 0:
+        excess_earning = net_worth * (roe - k) * 0.01
+        value = net_worth + (net_worth * (roe - k)) / k
+
+        w1= 0.9
+        mul1 = w1/ (1.0 + k * 0.01 - w1)
+        value1 = net_worth + excess_earning * mul1
+
+        w2 = 0.8
+        mul2 = w2/ (1.0 + k * 0.01 - w2)
+        value2 = net_worth + excess_earning * mul2
+
     else:
         excess_earning = net_worth * (roe - k) * 0.01
         mul = w / (1.0 + k * 0.01 - w)
         value = net_worth + excess_earning * mul
 
-    return value, net_worth, roe, excess_earning
+    return value, net_worth, roe, excess_earning, value1 , value2
 
 
 def estimate_price(code, k, w=1):
     """
     calculate reasonable price
-    :param code:
+    :param code: stock code
     :param k:
     :param w:
     :return: Reasonable Price, Shares, Value, NetWorth, ROE, Excess Earning
     """
-    value, net_worth, roe, excess_earning = estimate_company_value(code, k, w)
+    value, net_worth, roe, excess_earning, value1, value2 = estimate_company_value(code, k, w)
     shares = reader.get_shares(code)
     try:
         price = value / shares
+        price1 = value1 / shares
+        price2 = value2 / shares
     except:
         price = 0
-    return price, shares, value, net_worth, roe, excess_earning
+        price1 = 0
+        price2 = 0
+    return price, shares, value, net_worth, roe, excess_earning, price1, price2
 
 
 def get_disparity(code, k, w=1):

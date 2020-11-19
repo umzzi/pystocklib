@@ -45,5 +45,5 @@ def get_code_list_by_market(market=1):
 
 if __name__ == "__main__":
     df = get_code_list_by_market(market=3)
-    print(df.head())
+    #print(df.head())
 

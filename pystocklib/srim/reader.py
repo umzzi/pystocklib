@@ -37,23 +37,26 @@ def get_roe(code):
     acode = make_acode(code)
     url = f"http://comp.fnguide.com/SVO2/ASP/SVD_main.asp?pGB=1&gicode={acode}"
     selector = "#highlight_D_A > table > tbody > tr:nth-child(18) > td"
-    tags = get_elements_by_css_selector(url, selector)
-    vals = [tag.text for tag in tags]
+    try:
+        tags = get_elements_by_css_selector(url, selector)
+        vals = [tag.text for tag in tags]
 
-    roes = []
-    for x in vals:
-        try:
-            x = x.replace(',', '')
-            roes.append(float(x))
-        except:
-            roes.append(0)
-    roe3 = roes[:3]
+        roes = []
+        for x in vals:
+            try:
+                x = x.replace(',', '')
+                roes.append(float(x))
+            except:
+                roes.append(0)
+        roe3 = roes[:3]
 
-    # uptrend or downtrend
-    if roe3[0] <= roe3[1] <= roe3[2] or roe3[0] >= roe3[1] >= roe3[2]:
-        roe = roe3[2]
-    else:
-        roe = (roe3[0] + roe3[1] * 2 + roe3[2] * 3) / 6     # weighting average
+        # uptrend or downtrend
+        if roe3[0] <= roe3[1] <= roe3[2] or roe3[0] >= roe3[1] >= roe3[2]:
+            roe = roe3[2]
+        else:
+            roe = (roe3[0] + roe3[1] * 2 + roe3[2] * 3) / 6  # weighting average
+    except:
+        roe = 0
     return roe
 
 
@@ -62,11 +65,12 @@ def get_shares(code):
     url = f"http://comp.fnguide.com/SVO2/ASP/SVD_main.asp?pGB=1&gicode={acode}"
     selector = "#svdMainGrid1 > table > tbody > tr:nth-child(7) > td:nth-child(2)"
     total_shares = get_element_by_css_selector(url, selector, rawdata=True)
-    total_shares = total_shares.split("/")[0]
-    total_shares = total_shares.replace(",", "")
     try:
+        total_shares = total_shares.split("/")[0]
+        total_shares = total_shares.replace(",", "")
         total_shares = float(total_shares)
     except:
+        print(url)
         total_shares = 0
 
     selector = "#svdMainGrid5 > table > tbody > tr:nth-child(5) > td:nth-child(3)"
@@ -84,10 +88,23 @@ def get_current_price(code):
     return get_element_by_css_selector(url, selector)
 
 
+def compare_price(curprice, price2):
+    try:
+        diff = round((1 - (curprice / price2)) * 100, 2)
+
+        if curprice < price2:
+            cheap = "싸다"
+        else:
+            cheap = "비싸다"
+    except:
+        cheap = "값없음"
+    return cheap, diff
+
+
 if __name__ == "__main__":
-    #print(get_5years_earning_rate())
-    #print(get_net_worth("005930"))
-    #print(get_roe("005930"))
-    #print(get_shares("005930"))
-    #print(get_current_price("005930"))
+    # print(get_5years_earning_rate())
+    # print(get_net_worth("005930"))
+    # print(get_roe("005930"))
+    # print(get_shares("005930"))
+    # print(get_current_price("005930"))
     print(get_roe("023460"))

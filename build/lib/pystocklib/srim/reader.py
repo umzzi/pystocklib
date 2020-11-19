@@ -53,7 +53,7 @@ def get_roe(code):
     if roe3[0] <= roe3[1] <= roe3[2] or roe3[0] >= roe3[1] >= roe3[2]:
         roe = roe3[2]
     else:
-        roe = (roe3[0] + roe3[1] * 2 + roe3[2] * 3) / 6     # weighting average
+        roe = (roe3[0] + roe3[1] * 2 + roe3[2] * 3) / 6  # weighting average
     return roe
 
 
@@ -81,10 +81,20 @@ def get_current_price(code):
     return get_element_by_css_selector(url, selector)
 
 
+def compare_price(curprice, price2):
+    diff = round((1 - (curprice / price2)) * 100, 2)
+
+    if curprice < price2:
+        cheap = "싸다"
+    else:
+        cheap = "비싸다"
+    return cheap
+
+
 if __name__ == "__main__":
-    #print(get_5years_earning_rate())
-    #print(get_net_worth("005930"))
-    #print(get_roe("005930"))
-    #print(get_shares("005930"))
-    #print(get_current_price("005930"))
-    print(get_roe("023460"))
+    # print(get_5years_earning_rate())
+    # print(get_net_worth("005930"))
+    # print(get_roe("005930"))
+    # print(get_shares("005930"))
+    # print(get_current_price("005930"))
+    print()
