@@ -39,6 +39,7 @@ def get_roe(code):
     selector = "#highlight_D_A > table > tbody > tr:nth-child(18) > td"
     try:
         tags = get_elements_by_css_selector(url, selector)
+
         vals = [tag.text for tag in tags]
 
         roes = []
@@ -98,6 +99,7 @@ def compare_price(curprice, price2):
             cheap = "비싸다"
     except:
         cheap = "값없음"
+        diff = "null"
     return cheap, diff
 
 
