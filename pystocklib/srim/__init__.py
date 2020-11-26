@@ -12,6 +12,9 @@ def estimate_company_value(code, k, w=1):
     net_worth = reader.get_net_worth(code)
     roe = reader.get_roe(code)
     excess_earning = net_worth * (roe - k) * 0.01
+    value = 0
+    value1 = 0
+    value2 = 0
 
     if w == 1:
         value = net_worth + (net_worth * (roe - k)) / k
@@ -64,14 +67,16 @@ def get_disparity(code, k, w=1):
     :param w:
     :return:
     """
-    est_price, shares, value, net_worth, roe, excess_earning = estimate_price(code, k, w)
+    est_price, shares, value, net_worth, roe, excess_earning, price1, price2 = estimate_price(code, k, w)
     cur_price = reader.get_current_price(code)
 
     try:
         disparity = (cur_price / est_price) * 100
+        disparity20 = (cur_price / price2) * 100
     except:
         disparity = None
-    return disparity, cur_price, est_price, shares, value, net_worth, roe, excess_earning
+        disparity20 = None
+    return disparity, cur_price, est_price, shares, value, net_worth, roe, excess_earning, price1, price2, disparity20
 
 
 if __name__ == "__main__":

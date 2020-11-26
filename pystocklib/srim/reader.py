@@ -71,7 +71,7 @@ def get_shares(code):
         total_shares = total_shares.replace(",", "")
         total_shares = float(total_shares)
     except:
-        print(url)
+        print(f'{url}:could not get_shares')
         total_shares = 0
 
     selector = "#svdMainGrid5 > table > tbody > tr:nth-child(5) > td:nth-child(3)"
@@ -89,6 +89,52 @@ def get_current_price(code):
     return get_element_by_css_selector(url, selector)
 
 
+# 시가총액
+def get_aggregate_value(code):
+    acode = make_acode(code)
+    url = f"http://comp.fnguide.com/SVO2/ASP/SVD_main.asp?pGB=1&gicode={acode}"
+    selector = "#svdMainGrid1 > table > tbody > tr:nth-child(5) > td:nth-child(2)"
+    return get_element_by_css_selector(url, selector, rawdata=True)
+
+
+def get_is_aggreagate_up(code, wantValue):
+    try:
+        val = get_aggregate_value(code)
+        val = float(val.replace(',', ''))
+        if val > wantValue:
+            return True
+    except:
+        return False
+
+
+def get_capital_value(code):
+    acode = make_acode(code)
+    url = f"http://comp.fnguide.com/SVO2/ASP/SVD_main.asp?pGB=1&gicode={acode}"
+    selector = "#highlight_D_A > table > tbody > tr:nth-child(10) > td"
+    ic_flag = False
+    capital3 = ""
+    try:
+        tags = get_elements_by_css_selector(url, selector)
+        vals = [tag.text for tag in tags]
+        capital = []
+        for x in vals:
+            try:
+                x = x.replace(',', '')
+                capital.append(float(x))
+            except:
+                capital.append(0)
+
+        capital3 = capital[:3]
+        if capital3[0] < capital3[1] or capital3[0] < capital3[2]:
+            if capital3[1] < capital3[2]:
+                ic_flag = True
+        else:
+            ic_flag = False
+    except:
+        ic_flag = False
+    return ic_flag, capital3
+
+
 def compare_price(curprice, price2):
     try:
         diff = round((1 - (curprice / price2)) * 100, 2)
@@ -99,7 +145,7 @@ def compare_price(curprice, price2):
             cheap = "비싸다"
     except:
         cheap = "값없음"
-        diff = "null"
+        diff = ""
     return cheap, diff
 
 

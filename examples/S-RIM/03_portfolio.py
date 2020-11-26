@@ -22,14 +22,11 @@ k = srim_reader.get_5years_earning_rate()
 data = []
 index = 0
 for acode in df.index:
-    name = df.loc[acode, "nm"]
-    disparity, *others = srim.get_disparity(acode, k, w=0.7)
+    disparity, *others = srim.get_disparity(acode[0], k, w=0.7)
     roe = others[5]
-    data.append({'code': acode, 'name': name, 'disparity': disparity, 'roe': roe})
+    data.append({'code': acode[0], 'name': acode[1],'disparity': disparity, 'roe': roe})
     time.sleep(3)
     print(index, "/", len(df.index))
-    if index == 20:
-        break
     index += 1
 
 # filtering the company (ROE > k)
@@ -40,5 +37,5 @@ df = df[cond]
 
 # sorting
 df2 = df.sort_values(by='disparity')
-df2.to_excel("srim.xlsx")
+df2.to_excel("srim.20201121.xlsx")
 
