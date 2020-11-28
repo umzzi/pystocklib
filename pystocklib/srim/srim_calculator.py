@@ -58,10 +58,10 @@ def estimate_rim_price(net_worth, roe, k, total_shares, self_hold_shares, w=1):
         price = value / shares
 
     if value1 is not None:
-        price1 = value / shares
+        price1 = value1 / shares
 
     if value2 is not None:
-        price2 = value / shares
+        price2 = value2 / shares
 
     return price, price1, price2, excess_earning
 
