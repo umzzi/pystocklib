@@ -97,6 +97,7 @@ def get_aggregate_value(code):
     return get_element_by_css_selector(url, selector, rawdata=True)
 
 
+
 def get_is_aggreagate_up(code, wantValue):
     try:
         val = get_aggregate_value(code)
@@ -105,6 +106,8 @@ def get_is_aggreagate_up(code, wantValue):
             return True
     except:
         return False
+
+
 
 
 def get_capital_value(code):
@@ -147,6 +150,7 @@ def compare_price(curprice, price2):
         cheap = "값없음"
         diff = ""
     return cheap, diff
+
 
 
 if __name__ == "__main__":

@@ -1,3 +1,4 @@
+from urllib.request import Request, urlopen
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
@@ -43,7 +44,11 @@ def get_code_list_by_market(market=1):
     return df
 
 
+
+
+
+
+
 if __name__ == "__main__":
     df = get_code_list_by_market(market=3)
     print(df.head())
-

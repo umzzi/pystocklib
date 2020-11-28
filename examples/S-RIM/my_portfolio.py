@@ -35,6 +35,7 @@ for acode in df.index:
     estPrice = others[1]
     estPrice1 = others[7]
     estPrice2 = others[8]
+    net_worth = others[4]
     index = index + 1
 
     comPrice = estPrice1
@@ -42,9 +43,6 @@ for acode in df.index:
     compFlag = False
     if curPrice is not None and comPrice is not None:
         compFlag = float(curPrice) < float(comPrice)
-        if comPrice == estPrice2:
-            estPrice2 = round(comPrice)
-
         if estPrice1 is not None:
             estPrice1 = round(estPrice1)
         if estPrice2 is not None:
@@ -65,7 +63,9 @@ for acode in df.index:
                 data.append(
                     {'code': acode[0], 'name': acode[1], 'curPrice': others[0], 'curPrice1': estPrice1,
                      'estPrice20%': round(estPrice2, 2),
-                     'disparity20': disparity20, 'estprice2-curprice': diff, 'roe': roe, 'capital': isCr[1]})
+                     'disparity20': disparity20, 'estprice2-curprice': diff,
+                     'roe': roe, 'capital': isCr[1],
+                     '시가총액':net_worth})
                 print(index, "/", len(df.index), acode[1])
 
 # filtering the company (ROE > k)
