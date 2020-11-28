@@ -1,5 +1,6 @@
 from pystocklib.common import *
 from datetime import date
+import time
 
 import pandas as pd
 import pystocklib.srim.reader as srim_reader
@@ -25,13 +26,15 @@ k = srim_reader.get_5years_earning_rate()
 i = 0
 data = []
 for acode in mdf.index:
-    # if i == 5: break
+    if i == 100: break
     code = acode[0]
     ticker = acode[1]
     i = i + 1
     print(f'{i}/{len(mdf.index)}:{code}:{ticker}')
 
     df = pd.read_html(reader_hh.get_html_fnguide(code, gb=0))
+    time.sleep(0.1)
+
 
     price = df[0][1][0]
     if price is not None:
@@ -96,28 +99,29 @@ for acode in mdf.index:
     prices = [others[2], others[3], others[4]]
     price_level = srim_calculator.get_price_level(cur_price, prices)
 
-    data.append(
-        {
-            'code': code,
-            'name': ticker,
-            'price': cur_price,
-            'rep_roe': round(rep_roe, 2),
-            'est_level': price_level,
-            'est_price': prices[0], 'disparity': disparity,
-            'est_price1': prices[1], 'disparity1': others[0],
-            'est_price2': prices[2], 'disparity2': others[1],
-            stock[0][0]: stock[0][1],  # 시가총액
-            stock[1][0]: stock[1][1],  # 매출익
-            stock[2][0]: stock[2][1],  # 영업이익
-            stock[3][0]: stock[3][1],  # EPS
-            stock[7][0]: stock[7][1],  # 배당수익
-            jasa[0][0]: jasa[0][3],  # 최대주주지분율
-            jasa[4][0]: self_hold_shares,  # 자사주수
-            jemu[9][0]: capital,  # 지배주주지분
-            jemu[17][0]: roes,
-            jemu[21][0]: pers
-        }
-    )
+    if price_level > 0:
+        data.append(
+            {
+                'code': code,
+                'name': ticker,
+                'price': cur_price,
+                'rep_roe': round(rep_roe, 2),
+                'est_level': price_level,
+                'est_price': prices[0], 'disparity': disparity,
+                'est_price1': prices[1], 'disparity1': others[0],
+                'est_price2': prices[2], 'disparity2': others[1],
+                stock[0][0]: stock[0][1],  # 시가총액
+                jemu[9][0]: capital,  # 지배주주지분
+                "최대주주지분율": jasa[0][3],  # 최대주주지분율
+                "자기주식수": self_hold_shares,  # 자사주수
+                jemu[17][0]: roes,
+                jemu[21][0]: pers,
+                stock[1][0]: stock[1][1],  # 매출익
+                stock[2][0]: stock[2][1],  # 영업이익
+                stock[3][0]: stock[3][1],  # EPS
+                stock[7][0]: stock[7][1],  # 배당수익
+            }
+        )
 
 
 
