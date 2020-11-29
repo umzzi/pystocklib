@@ -1,6 +1,20 @@
 import pystocklib.srim.reader as reader
 
 
+def won_convert_to_float(value):
+    price = 0
+    if value is not None:
+        price = value.replace(",", "")
+        price = float(price)
+    return price
+
+
+def parsing_string_sep(value, sep, order):
+    if value is not None:
+        ret_value = value.split(sep)[order]
+    return ret_value
+
+
 def estimate_rim(net_worth, roe, k, w=1):
     """
     :param net_worth 지배주주자
@@ -78,9 +92,14 @@ def get_srim_disparity(cur_price, net_worth, roe, k, total_shares, self_hold_sha
                                                                            self_hold_shares, w)
 
     try:
-        disparity = round((cur_price / est_price) * 100,2)
-        disparity10 = round((cur_price / est_price1) * 100,2)
-        disparity20 = round((cur_price / est_price2) * 100,2)
+        # disparity = round((cur_price / est_price) * 100, 2)
+        # disparity10 = round((cur_price / est_price1) * 100, 2)
+        # disparity20 = round((cur_price / est_price2) * 100, 2)
+
+    #    1 - (est_price/cur_price) , 현재가가 목표가보다 얼마나 저렴한지, 목표가일때 얻을 예상 수익
+        disparity = round((1 - (est_price / cur_price)) * 100, 2)
+        disparity10 = round((1 - (est_price1 / cur_price)) * 100, 2)
+        disparity20 = round((1 - (est_price2 / cur_price)) * 100, 2)
     except:
         disparity = None
         disparity10 = None
@@ -117,3 +136,16 @@ if __name__ == "__main__":
 
 def printf(format, *values):
     print(format % values)
+
+def null_check(value):
+    if value is not None:
+        return value
+    else:
+        return 0
+
+def is_per_compare_sector(cur_per, sector_per):
+    return float(null_check(cur_per)) < float(null_check(sector_per))
+
+
+def make_dividend_stock(capitalrto, dividend):
+    return float(null_check(capitalrto)) > 50 and float(null_check(dividend)) > 0

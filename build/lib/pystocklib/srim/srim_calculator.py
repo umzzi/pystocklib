@@ -1,6 +1,20 @@
 import pystocklib.srim.reader as reader
 
 
+def won_convert_to_float(value, sep):
+    price = 0
+    if value is not None:
+        price = value.replace(",", "")
+        price = float(price)
+    return price
+
+
+def parsing_string_sep(value, sep, order):
+    if value is not None:
+        ret_value = value.split(sep)[order]
+    return ret_value
+
+
 def estimate_rim(net_worth, roe, k, w=1):
     """
     :param net_worth 지배주주자
@@ -78,9 +92,9 @@ def get_srim_disparity(cur_price, net_worth, roe, k, total_shares, self_hold_sha
                                                                            self_hold_shares, w)
 
     try:
-        disparity = round((cur_price / est_price) * 100,2)
-        disparity10 = round((cur_price / est_price1) * 100,2)
-        disparity20 = round((cur_price / est_price2) * 100,2)
+        disparity = round((cur_price / est_price) * 100, 2)
+        disparity10 = round((cur_price / est_price1) * 100, 2)
+        disparity20 = round((cur_price / est_price2) * 100, 2)
     except:
         disparity = None
         disparity10 = None
