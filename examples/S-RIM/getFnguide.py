@@ -33,7 +33,7 @@ for acode in mdf.index:
     i = i + 1
     if i % 100 == 0 :
         print(f'{i}/{len(mdf.index)}:{code}:{ticker}')
-        time.sleep(0.5)
+        time.sleep(1)
 
     df = pd.read_html(reader_hh.get_html_fnguide(code, gb=0))
 

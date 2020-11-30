@@ -51,11 +51,11 @@ def get_roe(code):
                 roes.append(0)
         roe3 = roes[:3]
 
-        # uptrend or downtrend
+        # uptrend or downtrend 계속 늘어나는 방향, 감소하는 방향이면 제일 최근값을 쓴다.
         if roe3[0] <= roe3[1] <= roe3[2] or roe3[0] >= roe3[1] >= roe3[2]:
             roe = roe3[2]
         else:
-            roe = (roe3[0] + roe3[1] * 2 + roe3[2] * 3) / 6  # weighting average
+           roe = (roe3[0] + roe3[1] * 2 + roe3[2] * 3) / 6  # weighting average
     except:
         roe = 0
     return roe

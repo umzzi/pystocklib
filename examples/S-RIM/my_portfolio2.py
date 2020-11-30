@@ -6,17 +6,18 @@ import pandas as pd
 from datetime import date, datetime
 
 code_list = [
-    ["357780" ,"솔브레인"],
-    ["011170", "롯데케미칼"],
-             ["097950","CJ제일제당"], ["069960","현대백화점"],
-             ["017670","SK텔레콤"],
-             ["009150","삼성전기"],
-             ["012630", "HDC"],
-["078340","컴투스"],
-["035900", "JYP Ent."],
-["001680","대상"],
-["009810",""],
-["238490","힘스"],
+#     ["357780" ,"솔브레인"],
+#     ["011170", "롯데케미칼"],
+#              ["097950","CJ제일제당"],
+#             ["069960","현대백화점"],
+#              ["017670","SK텔레콤"],
+#              ["009150","삼성전기"],
+#              ["012630", "HDC"],
+# ["078340","컴투스"],
+# ["035900", "JYP Ent."],
+# ["001680","대상"],
+# ["009810",""],
+# ["238490","힘스"],
 ["078340", "컴투스"],
 ["004170", "신세계"],
 ["000660", "SK하이닉스"]
@@ -41,10 +42,13 @@ for acode in code_list:
         estPrice = others[1]
         estPrice1 = others[7]
         estPrice2 = others[8]
+        print(roe)
+        print(curPrice)
+        print(estPrice)
 
     compFlag = False
-    if curPrice is not None and estPrice2 is not None:
-        compFlag = float(curPrice) < float(estPrice1)
+    if curPrice is not None :
+        compFlag = float(curPrice) < float(estPrice)
         estPrice2 = round(estPrice2)
         if others[9] is not None:
             disparity20 = round(others[9], 2)

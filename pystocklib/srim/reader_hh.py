@@ -28,7 +28,10 @@ def get_html_fnguide(code, gb):
     try:
         resp = requests.get(url)
         return resp.text
-
+    except requests.exceptions.RequestException as error:
+        print("Error:", error)
+        resp = requests.get(url)
+        return resp.text
     except AttributeError as e:
         return None
 

@@ -14,6 +14,7 @@ def get_html_fnguide(code, gb):
         "http://comp.fnguide.com/SVO2/ASP/SVD_main.asp?pGB=1&gicode=" + code + "&cID=&MenuYn=Y&ReportGB=&NewMenuID=101&stkGb=701")
     url.append(
         "https://comp.fnguide.com/SVO2/ASP/SVD_Finance.asp?pGB=1&gicode=" + code + "&cID=&MenuYn=Y&ReportGB=&NewMenuID=103&stkGb=701")
+    #TODO eps 증가율 가져오기
     url.append(
         "https://comp.fnguide.com/SVO2/ASP/SVD_FinanceRatio.asp?pGB=1&gicode=" + code + "&cID=&MenuYn=Y&ReportGB=&NewMenuID=104&stkGb=701")
     url.append(
