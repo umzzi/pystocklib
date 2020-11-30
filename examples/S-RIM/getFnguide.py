@@ -157,7 +157,7 @@ for acode in mdf.index:
                     ' < 동종업계per': is_cheaper_per,
                     'disparity': disparity,
                     'disparity1': others[0],
-                    stock[0][0]: stock[0][1],  # 시가총액
+                    '시가총액(억)': stock[0][1],  # 시가총액
                     '거래량': trading_cnt,
                     '지배주주자본': capital,  # 지배주주지분
                     "최대주주지분율": jasa[0][3],  # 최대주주지분율
