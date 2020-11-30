@@ -112,7 +112,6 @@ for acode in mdf.index:
             {
                 'code': link,
                 'name': consen_link,
-                'link': link,
                 'est_level': price_level,
                 'price': cur_price,
                 'est_price': prices[0],
@@ -143,9 +142,8 @@ for acode in mdf.index:
         if is_dividend :
             dividend.append(
                 {
-                    'code': code,
-                    'name': ticker,
-                    'link': link,
+                    'code': link,
+                    'name': consen_link,
                     'est_level': price_level,
                     'price': cur_price,
                     'est_price': prices[0],
