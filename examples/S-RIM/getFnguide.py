@@ -27,7 +27,7 @@ i = 0
 data = []
 dividend = []
 for acode in mdf.index:
-    if i == 10: break
+    # if i == 10: break
     code = acode[0]
     ticker = acode[1]
     i = i + 1
