@@ -1,3 +1,5 @@
+import numpy
+
 import pystocklib.srim.reader as reader
 
 
@@ -48,8 +50,11 @@ def estimate_rim(net_worth, roe, k, w=1):
 
 
 def self_shares_count(total_shares, self_hold_shares):
-    if total_shares is not None and self_hold_shares is not None:
-        return float(total_shares) - float(self_hold_shares)
+    if total_shares is None or numpy.isnan(total_shares):
+        total_shares = 0
+    if self_hold_shares is None or numpy.isnan(self_hold_shares):
+        self_hold_shares = 0
+    return float(total_shares) - float(self_hold_shares)
 
 
 def estimate_rim_price(net_worth, roe, k, total_shares, self_hold_shares, w=1):

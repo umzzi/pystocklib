@@ -1,6 +1,8 @@
 from datetime import date
 
+import numpy
 import pandas as pd
+from numpy import nan
 
 import pystocklib.srim as srim
 import pystocklib.srim.reader as srim_reader

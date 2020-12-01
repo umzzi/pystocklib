@@ -105,13 +105,15 @@ def get_roe_average(roes):
         roes1 = float(roes[1])
     if roes[2] is not None and roes[2] > 0:
         roes2 = float(roes[2])
-
+    roe = (roes0 + roes1 * 2 + roes2 * 3) / 6  # weighting average
+    '''
     # uptrend or downtrend
     if roes0 <= roes1 <= roes2 or roes0 >= roes1 >= roes2:
         roe = roes2
     else:
         roe = (roes0 + roes1 * 2 + roes2 * 3) / 6  # weighting average
         # print(f'{roe}:{roes0}:{roes1}:{roes2}')
+    '''
     return roe
 
 
