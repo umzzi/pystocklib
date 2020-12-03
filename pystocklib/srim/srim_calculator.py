@@ -1,3 +1,5 @@
+import numbers
+
 import numpy
 
 import pystocklib.srim.reader as reader
@@ -5,9 +7,11 @@ import pystocklib.srim.reader as reader
 
 def won_convert_to_float(value):
     price = 0
-    if value is not None:
-        price = value.replace(",", "")
-        price = float(price)
+    if value is not None and bool(value):
+        if not isinstance(value, float):
+            price = value.replace(",", "")
+        if not price or price != "":
+            price = int(price)
     return price
 
 
@@ -15,6 +19,29 @@ def parsing_string_sep(value, sep, order):
     if value is not None:
         ret_value = value.split(sep)[order]
     return ret_value
+
+def get_pegr_value(eps_rtos, cur_per):
+    # return pegr(cur_per/geovalue), geovalue(esp 증가율 기하평균)
+    pegr = 0
+    epsmulti = 1
+    cnt = 0
+    geoValue = 0
+    for item in eps_rtos:
+        if isinstance(item, numbers.Number) and item != 0 and item != "적전":
+            item = float(item)
+            epsmulti *= 1 + (item * 0.01)
+            # print(1 + (item * 0.01))
+            cnt = cnt + 1
+
+    if cnt > 0 and epsmulti > 0:
+        geoValue = ((epsmulti ** (1 / cnt)) - 1) * 100
+
+    if cur_per is not None and geoValue != 0:
+        pegr = cur_per / geoValue
+
+    pegr = round(float(null_check(pegr)), 2)
+
+    return pegr, geoValue
 
 
 def estimate_rim(net_worth, roe, k, w=1):
@@ -50,7 +77,7 @@ def estimate_rim(net_worth, roe, k, w=1):
 
 
 def self_shares_count(total_shares, self_hold_shares):
-    if total_shares is None or numpy.isnan(total_shares):
+    if total_shares is None and bool(total_shares) == False:
         total_shares = 0
     if self_hold_shares is None or numpy.isnan(self_hold_shares):
         self_hold_shares = 0
@@ -73,14 +100,15 @@ def estimate_rim_price(net_worth, roe, k, total_shares, self_hold_shares, w=1):
     price1 = 0
     price2 = 0
 
-    if value is not None and shares is not None:
-        price = value / shares
+    if shares > 0:
+        if value is not None:
+            price = value / shares
 
-    if value1 is not None:
-        price1 = value1 / shares
+        if value1 is not None:
+            price1 = value1 / shares
 
-    if value2 is not None:
-        price2 = value2 / shares
+        if value2 is not None:
+            price2 = value2 / shares
 
     return price, price1, price2, excess_earning
 
@@ -101,7 +129,7 @@ def get_srim_disparity(cur_price, net_worth, roe, k, total_shares, self_hold_sha
         # disparity10 = round((cur_price / est_price1) * 100, 2)
         # disparity20 = round((cur_price / est_price2) * 100, 2)
 
-    #    1 - (est_price/cur_price) , 현재가가 목표가보다 얼마나 저렴한지, 목표가일때 얻을 예상 수익
+        #    1 - (est_price/cur_price) , 현재가가 목표가보다 얼마나 저렴한지, 목표가일때 얻을 예상 수익
         disparity = round((1 - (est_price / cur_price)) * 100, 2)
         disparity10 = round((1 - (est_price1 / cur_price)) * 100, 2)
         disparity20 = round((1 - (est_price2 / cur_price)) * 100, 2)
@@ -142,11 +170,13 @@ if __name__ == "__main__":
 def printf(format, *values):
     print(format % values)
 
+
 def null_check(value):
     if value is not None:
         return value
     else:
         return 0
+
 
 def is_per_compare_sector(cur_per, sector_per):
     return float(null_check(cur_per)) < float(null_check(sector_per))

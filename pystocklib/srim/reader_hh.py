@@ -1,3 +1,5 @@
+import time
+
 from pystocklib.common import *
 
 
@@ -25,11 +27,13 @@ def get_html_fnguide(code, gb):
         return None
 
     url = url[gb]
+
     try:
         resp = requests.get(url)
         return resp.text
     except requests.exceptions.RequestException as error:
         print("Error:", error)
+        time.sleep(1)
         resp = requests.get(url)
         return resp.text
     except AttributeError as e:
@@ -89,6 +93,7 @@ def get_financial_highlight(value, ret_cnt=3):
             i = i + 1
             if i > ret_cnt + 1:
                 break
+
         except:
             output.append(0)
     return output

@@ -39,7 +39,7 @@ index = 0
 data = []
 dividend = []
 for acode in mdf.index:
-    # if i == 10: break
+    # if index == 100: break
     code = acode[0]
     ticker = acode[1]
     index = index + 1
@@ -47,7 +47,7 @@ for acode in mdf.index:
         print(f'{index}/{len(mdf.index)}:{code}:{ticker}')
         time.sleep(1)
 
-    df = pd.read_html(reader_hh.get_html_fnguide(code, gb=0))
+    df = pd.read_html(hh_reader.get_html_fnguide(code, gb=0))
 
     # 현재종가
     price = srim_calculator.parsing_string_sep(df[0][1][0], "/", 0)
@@ -69,7 +69,8 @@ for acode in mdf.index:
     market_capital = stock[0][1]
 
     # 수정주가PER
-    is_cheaper_per = srim_calculator.is_per_compare_sector(stock[4][1], stock[4][2])
+    cur_per = stock[4][1]
+    is_cheaper_per = srim_calculator.is_per_compare_sector(cur_per, stock[4][2])
 
     # 4년 ROE
     roes = reader_hh.get_financial_highlight(jemu[17])
@@ -114,6 +115,15 @@ for acode in mdf.index:
     prices = [others[2], others[3], others[4]]
     price_level = srim_calculator.get_price_level(cur_price, prices)
 
+    gf = pd.read_html(hh_reader.get_html_fnguide(code, gb=2))
+    eps_incr_ratio = gf[0].values
+    eps_incr_value = eps_incr_ratio[13]
+    pegr = 0
+    if eps_incr_ratio is not None and len(eps_incr_ratio) > 13:
+        eps = hh_reader.get_financial_highlight(eps_incr_value, 5)
+        pegr, epsavg = srim_calculator.get_pegr_value(eps, cur_per)
+
+
     naver_url = "https://finance.naver.com/item/coinfo.nhn?code=" + code.replace("A", "")
     link = '=HYPERLINK("' + naver_url + '", "' + code + '")'
     consen_url = "http://comp.fnguide.com/SVO2/ASP/SVD_Consensus.asp?pGB=1&gicode=" + code + "&cID=&MenuYn=Y&ReportGB=&NewMenuID=108&stkGb=701"
@@ -125,6 +135,8 @@ for acode in mdf.index:
                 'name': consen_link,
                 'est_level': price_level,
                 'price': cur_price,
+                'pegr' : pegr,
+                'cur_per': cur_per,
                 'est_price': prices[0],
                 'est_price1': prices[1],
                 'est_price2': prices[2],
@@ -133,6 +145,7 @@ for acode in mdf.index:
                 'disparity2': others[1],
                 'rep_roe': round(rep_roe, 2),
                 ' < 동종업계per': is_cheaper_per,
+                'eps증가율(avg)' : eps_incr_value+"("+epsavg+")",
                 stock[0][0]: stock[0][1],  # 시가총액
                 '거래량': trading_cnt,
                 '지배주주자본': capital,  # 지배주주지분
@@ -157,6 +170,8 @@ for acode in mdf.index:
                     'name': consen_link,
                     'est_level': price_level,
                     'price': cur_price,
+                    'pegr': pegr,
+                    'cur_per':cur_per,
                     'est_price': prices[0],
                     'est_price1': prices[1],
                     'est_price2': prices[2],
@@ -165,7 +180,7 @@ for acode in mdf.index:
                     'disparity2': others[1],
                     'rep_roe': round(rep_roe, 2),
                     ' < 동종업계per': is_cheaper_per,
-
+                    'eps증가율(avg)': eps_incr_value + "(" + epsavg + ")",
                     '시가총액(억)': stock[0][1],  # 시가총액
                     '거래량': trading_cnt,
                     '지배주주자본': capital,  # 지배주주지분
