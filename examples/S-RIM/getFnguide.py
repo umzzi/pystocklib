@@ -75,8 +75,14 @@ for acode in mdf.index:
     # 4년 ROE
     roes = reader_hh.get_financial_highlight(jemu[17])
     rep_roe = reader_hh.get_roe_average(roes)
+
+    # 4년 EPS
+    epslist = reader_hh.get_financial_highlight(jemu[18])
+
     # 4년 PER
     pers = reader_hh.get_financial_highlight(jemu[21])
+
+
 
     # 4년 PBR
     pbrs = reader_hh.get_financial_highlight(jemu[22])
@@ -117,9 +123,9 @@ for acode in mdf.index:
 
     gf = pd.read_html(hh_reader.get_html_fnguide(code, gb=2))
     eps_incr_ratio = gf[0].values
-    eps_incr_value = eps_incr_ratio[13]
     pegr = 0
     if eps_incr_ratio is not None and len(eps_incr_ratio) > 13:
+        eps_incr_value = eps_incr_ratio[13]
         eps = hh_reader.get_financial_highlight(eps_incr_value, 5)
         pegr, epsavg = srim_calculator.get_pegr_value(eps, cur_per)
 
@@ -128,6 +134,7 @@ for acode in mdf.index:
     link = '=HYPERLINK("' + naver_url + '", "' + code + '")'
     consen_url = "http://comp.fnguide.com/SVO2/ASP/SVD_Consensus.asp?pGB=1&gicode=" + code + "&cID=&MenuYn=Y&ReportGB=&NewMenuID=108&stkGb=701"
     consen_link = '=HYPERLINK("' + consen_url + '", "' + ticker + '")'
+
     if price_level > 0:
         data.append(
             {
@@ -145,7 +152,9 @@ for acode in mdf.index:
                 'disparity2': others[1],
                 'rep_roe': round(rep_roe, 2),
                 ' < 동종업계per': is_cheaper_per,
-                'eps증가율(avg)' : eps_incr_value+"("+epsavg+")",
+                'eps': epslist,
+                'eps증가율': eps,
+                'eps증가율기하평균': epsavg,
                 stock[0][0]: stock[0][1],  # 시가총액
                 '거래량': trading_cnt,
                 '지배주주자본': capital,  # 지배주주지분
@@ -180,7 +189,9 @@ for acode in mdf.index:
                     'disparity2': others[1],
                     'rep_roe': round(rep_roe, 2),
                     ' < 동종업계per': is_cheaper_per,
-                    'eps증가율(avg)': eps_incr_value + "(" + epsavg + ")",
+                    'eps': epslist,
+                    'eps증가율': eps,
+                    'eps증가율기하평균': epsavg,
                     '시가총액(억)': stock[0][1],  # 시가총액
                     '거래량': trading_cnt,
                     '지배주주자본': capital,  # 지배주주지분
@@ -209,7 +220,7 @@ if index > 0:
         has_dividend = True
 
     today = date.today()
-    filename = "./srim_hh_" + today.strftime("%Y%m%d") + ".xlsx"
+    filename = "./srim_my_daily/srim_hh_" + today.strftime("%Y%m%d") + ".xlsx"
 
     with pd.ExcelWriter(filename, engine="xlsxwriter") as writer:
         df2.to_excel(writer, sheet_name="rim", startrow=1, header=False)
