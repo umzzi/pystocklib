@@ -20,6 +20,31 @@ def parsing_string_sep(value, sep, order):
         ret_value = value.split(sep)[order]
     return ret_value
 
+def cal_geometric_avg(values):
+    geoValue = 0
+    multi = 1
+    cnt = 0
+    for item in values:
+        if isinstance(item, numbers.Number) and item != 0:
+            item = float(item)
+            multi *= item
+            cnt = cnt + 1
+
+    if cnt > 0 and multi > 0:
+        geoValue = ((multi ** (1 / cnt)) - 1) * 100
+
+    return geoValue
+
+
+def calculate_pegr(eps_geo_avg, cur_per):
+    pegr = 0
+    if cur_per is not None and isinstance(cur_per, numbers.Number) \
+            and eps_geo_avg != 0:
+        pegr_tmp = cur_per / eps_geo_avg
+        pegr = round(float(null_check(pegr_tmp)), 2)
+    return pegr
+
+
 def get_pegr_value(eps_rtos, cur_per):
     # return pegr(cur_per/geovalue), geovalue(esp 증가율 기하평균)
     pegr = 0
@@ -36,7 +61,8 @@ def get_pegr_value(eps_rtos, cur_per):
     if cnt > 0 and epsmulti > 0:
         geoValue = ((epsmulti ** (1 / cnt)) - 1) * 100
 
-    if cur_per is not None and geoValue != 0:
+    if cur_per is not None and isinstance(cur_per, numbers.Number) \
+            and geoValue != 0:
         pegr = cur_per / geoValue
 
     pegr = round(float(null_check(pegr)), 2)

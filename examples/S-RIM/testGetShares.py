@@ -1,4 +1,5 @@
 import numbers
+import sys
 
 import pystocklib.srim.reader_hh as hh_reader
 import pandas as pd
@@ -8,6 +9,8 @@ import pandas as pd
 
 # pegr 구하기
 from pystocklib.srim import srim_calculator
+from pystocklib.srim.reader import get_5years_earning_rate
+from pystocklib.srim.srim_calculator import cal_geometric_avg, get_pegr_value
 
 code = "A005930"
 df = pd.read_html(hh_reader.get_html_fnguide(code, gb=2))
@@ -35,3 +38,17 @@ if price is not None and bool(price):
 
 # cf = pd.read_html(hh_reader.get_html_fnguide(code, gb=4))
 # print(cf)
+
+print(sys.argv[1])
+print(sys.argv[2])
+print(sys.argv[3])
+
+# eps2 = [3479.0, 2088.0, 2643.0, 3364.0]
+eps2 = [5421.0, 6024.0, 3166.0, 4067.0]
+
+eps_incr_percent, eps_geo_avg, eps_incre_level = hh_reader.calculate_eps(eps2)
+print(srim_calculator.calculate_pegr(eps_geo_avg, 1.0))
+print(eps_incr_percent)
+
+k = get_5years_earning_rate()
+print(k)

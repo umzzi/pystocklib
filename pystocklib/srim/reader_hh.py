@@ -1,3 +1,4 @@
+import numbers
 import time
 
 from pystocklib.common import *
@@ -38,6 +39,7 @@ def get_html_fnguide(code, gb):
         return resp.text
     except AttributeError as e:
         return None
+
 
 def ext_fin_fnguide_data(ticker, gb, item, n, freq="a"):
     """
@@ -80,6 +82,7 @@ def ext_fin_fnguide_data(ticker, gb, item, n, freq="a"):
         return None
 
     return (v)
+
 
 def get_financial_highlight(value, ret_cnt=3):
     i = 0
@@ -144,3 +147,58 @@ def is_capital_increment(capital):
     except:
         ic_flag = False
     return ic_flag
+
+
+def calculate_esp_percent(eps):
+    pre_val = 0
+    eps_incr_percent = []
+    try:
+        for item in eps:
+            if pre_val == 0:
+                pre_val = item
+            else:
+                rto = ((item / pre_val) - 1) * 100
+                pre_val = item
+                eps_incr_percent.append(round(rto, 1))
+    except AttributeError as e:
+        print(e)
+    return eps_incr_percent
+
+
+def calculate_esp_incr_levl(eps):
+    eps_incre_level = 0
+    try:
+        if eps[0] < eps[1] < eps[2] < eps[3]:
+            eps_incre_level = 3
+        elif eps[1] < eps[2] < eps[3]:
+            eps_incre_level = 2
+        elif eps[2] < eps[3]:
+            eps_incre_level = 1
+    except AttributeError as e:
+        print(e)
+    return eps_incre_level
+
+
+def calculate_esp_geo_avg(eps_incr_percent):
+    epsmulti = 1
+    geoAvg = 0
+    cnt = 0
+    for item in eps_incr_percent:
+        if isinstance(item, numbers.Number) and item != 0 and item != "적전":
+            item = float(item)
+            epsmulti *= 1 + (item * 0.01)
+            # print(1 + (item * 0.01))
+            cnt = cnt + 1
+
+    if cnt > 0 and epsmulti > 0:
+        geoAvg = ((epsmulti ** (1 / cnt)) - 1) * 100
+
+    return geoAvg
+
+
+def calculate_eps(eps):
+    eps_incr_percent = calculate_esp_percent(eps)
+    eps_geo_avg = calculate_esp_geo_avg(eps_incr_percent)
+    eps_incre_level = calculate_esp_incr_levl(eps)
+
+    return eps_incr_percent, eps_geo_avg, eps_incre_level
