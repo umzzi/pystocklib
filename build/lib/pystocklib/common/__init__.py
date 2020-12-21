@@ -1,10 +1,11 @@
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
-
+from urllib3.exceptions import InsecureRequestWarning
 
 def get_element_by_css_selector(url, selector, rawdata=False):
     try:
+        requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
         resp = requests.get(url)
         html = resp.text
         soup = BeautifulSoup(html, "html5lib")

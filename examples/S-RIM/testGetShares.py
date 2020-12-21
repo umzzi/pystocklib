@@ -9,7 +9,7 @@ import pandas as pd
 
 # pegr 구하기
 from pystocklib.srim import srim_calculator
-from pystocklib.srim.reader import get_5years_earning_rate
+from pystocklib.srim.reader import get_5years_earning_rate, get_code_list_by_market
 from pystocklib.srim.srim_calculator import cal_geometric_avg, get_pegr_value
 
 code = "A005930"
@@ -45,10 +45,17 @@ print(sys.argv[3])
 
 # eps2 = [3479.0, 2088.0, 2643.0, 3364.0]
 eps2 = [5421.0, 6024.0, 3166.0, 4067.0]
+eps2 = [5931.0, 6325.0, 6812.0, 7416.0]
 
 eps_incr_percent, eps_geo_avg, eps_incre_level = hh_reader.calculate_eps(eps2)
 print(srim_calculator.calculate_pegr(eps_geo_avg, 1.0))
 print(eps_incr_percent)
+print(eps_geo_avg)
 
 k = get_5years_earning_rate()
 print(k)
+
+# KOSPI code list
+kospi = get_code_list_by_market(market=2)
+kospi.to_excel("KOSPI3.xlsx")
+

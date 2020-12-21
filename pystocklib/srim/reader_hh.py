@@ -30,7 +30,7 @@ def get_html_fnguide(code, gb):
     url = url[gb]
 
     try:
-        resp = requests.get(url)
+        resp = requests.get(url, verify=False)
         return resp.text
     except requests.exceptions.RequestException as error:
         print("Error:", error)
