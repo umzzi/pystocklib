@@ -191,11 +191,15 @@ for acode in mdf.index:
     consen_url = "http://comp.fnguide.com/SVO2/ASP/SVD_Consensus.asp?pGB=1&gicode=" + code + "&cID=&MenuYn=Y&ReportGB=&NewMenuID=108&stkGb=701"
     consen_link = '=HYPERLINK("' + consen_url + '", "' + ticker + '")'
 
+    #TODO
+    # code, est_price, est_price1, est_price2, last_date db에 업데이트 하기.
     if price_level > 0:
         data.append(
             {
-                'code': link,
-                'name': consen_link,
+                'code': code,
+                'name': ticker,
+                'naverlink': link,
+                'fnlink': consen_link,
                 'est_level': price_level,
                 'price': cur_price,
                 'pegr' : pegr,
@@ -237,8 +241,10 @@ for acode in mdf.index:
         if is_dividend:
             dividend.append(
                 {
-                    'code': link,
-                    'name': consen_link,
+                    'code': code,
+                    'name': ticker,
+                    'naverlink': link,
+                    'fnlink': consen_link,
                     'est_level': price_level,
                     'price': cur_price,
                     'pegr': pegr,
@@ -291,7 +297,7 @@ if index > 0:
     filename = "./srim_my_daily/srim_hh_" + today.strftime("%Y%m%d") + ".xlsx"
 
     with pd.ExcelWriter(filename, engine="xlsxwriter") as writer:
-        df2.to_excel(writer, sheet_name="rim", startrow=1, header=False)
+        df2.to_excel(writer, sheet_name="rim")
 
         workbook = writer.book
         worksheet = writer.sheets['rim']
