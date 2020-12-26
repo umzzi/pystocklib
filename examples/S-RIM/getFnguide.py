@@ -211,19 +211,19 @@ for acode in mdf.index:
                 'disparity1': others[0],
                 'disparity2': others[1],
                 'rep_roe': round(rep_roe, 2),
-                ' < 동종업계per': is_cheaper_per,
-                'eps_level': eps_incre_level,
-                stock[3][0]: stock[3][1],  # EPS
-                'EPS예상':epslist[-1],
-                'esp올해예상증가율': eps_incr_percent[-1],
-                'eps': epslist,
+                'is_cheap_comp_per': is_cheaper_per,  # 동종업계 per보다 싼가
+                'eps_level': eps_incre_level,  # eps 증가추세에 따른 레벨 부여
+                'eps': stock[3][1],  # EPS,
+                'eps_expect': epslist[-1],
+                'eps_expect_this_year_ratio': eps_incr_percent[-1],  # eps올해예상증가
+                'eps_list': epslist,
                 'eps증가율': eps_incr_percent,
                 'eps증가율기하평균': eps_geo_avg,
                 'EPS최근증가율': recent_eps,
                 'EPS증가율_ORG': eps,
                 'EPS증가율_AVG':epsavg,
-                stock[0][0]: stock[0][1],  # 시가총액
-                '거래량': trading_cnt,
+                'market_cap': stock[0][1],  # 시가총액
+                'trading_cnt': trading_cnt,  #거래량
                 '지배주주자본': capital,  # 지배주주지분
                 "최대주주지분율": jasa[0][3],  # 최대주주지분율
                 jemu[17][0]: roes,
@@ -256,19 +256,19 @@ for acode in mdf.index:
                     'disparity1': others[0],
                     'disparity2': others[1],
                     'rep_roe': round(rep_roe, 2),
-                    ' < 동종업계per': is_cheaper_per,
-                    'eps_level': eps_incre_level,
-                    stock[3][0]: stock[3][1],  # EPS,
-                    'EPS예상': epslist[-1],
-                    'esp올해예상증가율': eps_incr_percent[-1],
-                    'eps': epslist,
+                    'is_cheap_comp_per': is_cheaper_per,  #동종업계 per보다 싼가
+                    'eps_level': eps_incre_level, #eps 증가추세에 따른 레벨 부여
+                    'eps': stock[3][1],  # EPS,
+                    'eps_expect': epslist[-1],
+                    'eps_expect_this_year_ratio': eps_incr_percent[-1], #eps올해예상증가
+                    'eps_list': epslist,
                     'eps증가율': eps_incr_percent,
                     'eps증가율기하평균': eps_geo_avg,
                     'EPS최근증가율': recent_eps,
                     'EPS증가율_ORG': eps,
                     'EPS증가율_AVG': epsavg,
-                    '시가총액(억)': stock[0][1],  # 시가총액
-                    '거래량': trading_cnt,
+                    'market_cap': stock[0][1],  # 시가총액(억)
+                    'trading_cnt': trading_cnt,  #거래량
                     '지배주주자본': capital,  # 지배주주지분
                     "최대주주지분율": jasa[0][3],  # 최대주주지분율
                     jemu[17][0]: roes,
