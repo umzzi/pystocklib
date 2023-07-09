@@ -1,5 +1,7 @@
 import numbers
 import time
+from datetime import datetime
+from urllib.request import urlopen
 
 from pystocklib.common import *
 
@@ -28,6 +30,7 @@ def get_html_fnguide(code, gb):
         return None
 
     url = url[gb]
+    #print(url)
 
     try:
         resp = requests.get(url, verify=False)
@@ -135,7 +138,9 @@ def is_capital_up(capitalValue, wantValue):
         return False
     return comflag
 
-
+'''
+    지배주주자본이 계속 증가하는가?
+'''
 def is_capital_increment(capital):
     ic_flag = False
     try:
@@ -202,3 +207,53 @@ def calculate_eps(eps):
     eps_incre_level = calculate_esp_incr_levl(eps)
 
     return eps_incr_percent, eps_geo_avg, eps_incre_level
+
+def get_naver_code(company_code):
+    company_code = company_code.replace("A", "")
+    url = "http://finance.naver.com/item/main.nhn?code="+company_code
+    bs_obj = BeautifulSoup(requests.get(url,
+                                      headers={'User-agent': 'Mozilla/5.0'}).text, "html.parser")
+    return bs_obj
+
+
+def get_naver_price(company_code):
+    bs_obj = get_naver_code(company_code)
+    no_today = bs_obj.find("p", {"class":"no_today"})
+    blind = no_today.find("span", {"class":"blind"})
+    now_price = blind.text
+    return now_price
+
+def read_naver(code, company, pages_to_fetch):
+        """네이버에서 주식 시세를 읽어서 데이터프레임으로 반환"""
+        try:
+            code = code.replace("A", "")
+            url = f"http://finance.naver.com/item/sise_day.nhn?code={code}"
+            print(url)
+            html = BeautifulSoup(requests.get(url,
+                                              headers={'User-agent': 'Mozilla/5.0'}).text, "lxml")
+            pgrr = html.find("td", class_="pgRR")
+            if pgrr is None:
+                return None
+            s = str(pgrr.a["href"]).split('=')
+            lastpage = s[-1]
+            df = pd.DataFrame()
+            pages = min(int(lastpage), pages_to_fetch)
+            for page in range(1, pages + 1):
+                pg_url = '{}&page={}'.format(url, page)
+                df = df.append(pd.read_html(requests.get(pg_url,
+                                                         headers={'User-agent': 'Mozilla/5.0'}).text)[0])
+                tmnow = datetime.now().strftime('%Y-%m-%d %H:%M')
+                print('[{}] {} ({}) : {:04d}/{:04d} pages are downloading...'.
+                      format(tmnow, company, code, page, pages), end="\r")
+            df = df.rename(columns={'날짜': 'date', '종가': 'close', '전일비': 'diff'
+                , '시가': 'open', '고가': 'high', '저가': 'low', '거래량': 'volume'})
+            df['date'] = df['date'].replace('.', '-')
+            df = df.dropna()
+            df[['close', 'diff', 'open', 'high', 'low', 'volume']] = df[['close',
+                                                                         'diff', 'open', 'high', 'low',
+                                                                         'volume']].astype(int)
+            df = df[['date', 'open', 'high', 'low', 'close', 'diff', 'volume']]
+        except Exception as e:
+            print('Exception occured :', str(e))
+            return None
+        return df

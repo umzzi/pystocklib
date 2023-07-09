@@ -1,0 +1,44 @@
+/**
+  내 주식 종목 저
+**/
+create table my_stock (
+ code varchar(20),
+ name varchar(100),
+ register_date DATE,
+ PRIMARY KEY (code)
+ );장
+
+
+ /**
+ 내 주식 입력 쿼리
+ **/
+
+insert into my_stock(code, name) values	('A001680',	'대상');
+insert into my_stock(code, name) values	('A005930',	'삼성전자');
+insert into my_stock(code, name) values	('A006400',	'삼성SDI');
+insert into my_stock(code, name) values	('A007070',	'GS리테일');
+insert into my_stock(code, name) values	('A049770',	'동원F&B');
+insert into my_stock(code, name) values	('A051910',	'LG화학');
+insert into my_stock(code, name) values	('A035420',	'네이버');
+insert into my_stock(code, name) values	('A251270',	'넷마블');
+insert into my_stock(code, name) values	('A192080',	'더블유게임즈');
+insert into my_stock(code, name) values	('A000660',	'SK하이닉스');
+insert into my_stock(code, name) values	('A109820',	'진매트릭스');
+insert into my_stock(code, name) values	('A111770',	'영원무역');
+insert into my_stock(code, name) values	('A009900',	'명신산업');
+insert into my_stock(code, name) values	('A004170',	'신세계');
+insert into my_stock(code, name) values	('A017670',	'SK텔레콤');
+insert into my_stock(code, name) values	('A005380',	'현대차');
+insert into my_stock(code, name) values	('A012330',	'현대모비스');
+insert into my_stock(code, name) values	('A035720',	'카카오');
+insert into my_stock(code, name) values	('A122990',	'와이솔');
+
+
+/**
+  내 주식의 srim result value 조회 query
+**/
+
+select a.*, b.*
+ from my_stock a left  join  my_srim_result b
+on a.code = b.code
+and b.last_update = '20210821';

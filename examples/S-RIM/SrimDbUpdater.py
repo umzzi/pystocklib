@@ -59,11 +59,12 @@ class SrimDbUpdater:
             curdate = datetime.now().strftime('%Y%m%d')
             dateformat = "DATE_FORMAT(NOW(), '%Y-%m-%d %H:%i:%s')"
 
-        df = pd.read_excel('./srim_my_daily/srim_hh_'+curdate+'.xlsx')
+        df = pd.read_excel('/Users/user/PycharmProjects/pystocklib/examples/S-RIM/srim_my_daily/srim_hh_'+curdate+'.xlsx')
+        print(curdate)
 
         with self.conn.cursor() as curs:
             for r in df.itertuples():
-                eps_expect_this_year_ratio = self.is_nan_check(r.eps, 0.0)
+                eps_expect_this_year_ratio = self.is_nan_check(r.eps_expect_this_year_ratio, 0.0)
                 eps = self.is_nan_check(r.eps)
                 est_price = self.is_nan_check(r.est_price)
                 est_price1 = self.is_nan_check(r.est_price1)
