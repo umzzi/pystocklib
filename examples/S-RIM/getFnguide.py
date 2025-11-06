@@ -1,8 +1,10 @@
 import sys
+from io import StringIO
 
 from pystocklib.common import *
 from datetime import date
 import time
+import os
 
 import pandas as pd
 import pystocklib.srim.reader as srim_reader
@@ -98,10 +100,12 @@ for acode in mdf.index:
         print(f'{index}/{len(mdf.index)}:{code}:{ticker}')
         time.sleep(1)
 
-    try :
-         df = pd.read_html(hh_reader.get_html_fnguide(code, gb=0))
-    except:
-        print(f'{index}/{len(mdf.index)}:{code}:{ticker}')
+    try:
+        html_text = hh_reader.get_html_fnguide(code, gb=0)
+        df = pd.read_html(StringIO(html_text))
+        # print(df[0].head())  # 디버깅이 필요하면 주석 해제
+    except Exception as e:
+        print(f'{index}/{len(mdf.index)}:{code}:{ticker} HTML 파싱 실패: {e}')
         continue
 
     # 현재종가
@@ -127,9 +131,12 @@ for acode in mdf.index:
     # 시가총액
     market_capital = stock[0][1]
 
-    # 수정주가PER
+    # 수정주가 PER
     cur_per = stock[4][1]
     is_cheaper_per = srim_calculator.is_per_compare_sector(cur_per, stock[4][2])
+    if is_cheaper_per == "FALSE" :
+        # print(f'{index}:{ticker} : 현재 per가 섹터 per 보다 싸지 않다.
+        continue
 
     # 4년 ROE
     roes = reader_hh.get_financial_highlight(jemu[17])
@@ -149,13 +156,12 @@ for acode in mdf.index:
         continue
 
     # 시가 총액이 얼마이상인가?
-    '''
-    std_capital = 1000
+    std_capital = 3000
     isCapBigger = reader_hh.is_capital_up(market_capital, std_capital)
     if not isCapBigger:
-        print(f'{index}:{ticker} : 시가총액이 {market_capital}, {std_capital}억보다 작다')
+        # print(f'{index}:{ticker} : 시가총액이 {market_capital}, {std_capital}억보다 작다')
         continue
-    '''
+
     # 4년 지배주주자본
     capital = reader_hh.get_financial_highlight(jemu[9])
     isCr = reader_hh.is_capital_increment(capital)
@@ -179,7 +185,8 @@ for acode in mdf.index:
     price_level = srim_calculator.get_price_level(cur_price, prices)
 
     # fnguide 재무비율 페이지의 EPS증가율 가져오기
-    gf = pd.read_html(hh_reader.get_html_fnguide(code, gb=2))
+    gf_html = hh_reader.get_html_fnguide(code, gb=2)
+    gf = pd.read_html(StringIO(gf_html))
     eps_incr_ratio = gf[0].values
     pegr = 0
     eps = []
@@ -193,7 +200,7 @@ for acode in mdf.index:
     eps_incr_percent, eps_geo_avg, eps_incre_level = hh_reader.calculate_eps(epslist)
     pegr = srim_calculator.calculate_pegr(eps_geo_avg, cur_per)
 
-    naver_url = "https://finance.naver.com/item/coinfo.nhn?code=" + code.replace("A", "")
+    naver_url = "https://finance.naver.com/item/main.naver?code="+ code.replace("A", "")
     link = '=HYPERLINK("' + naver_url + '", "' + code + '")'
     consen_url = "http://comp.fnguide.com/SVO2/ASP/SVD_Consensus.asp?pGB=1&gicode=" + code + "&cID=&MenuYn=Y&ReportGB=&NewMenuID=108&stkGb=701"
     consen_link = '=HYPERLINK("' + consen_url + '", "' + ticker + '")'
@@ -229,8 +236,8 @@ for acode in mdf.index:
                 'EPS최근증가율': recent_eps,
                 'EPS증가율_ORG': eps,
                 'EPS증가율_AVG': epsavg,
-                'market_cap': stock[0][1],  # 시가총액
-                'trading_cnt': trading_cnt,  # 거래량
+                '시가총액': stock[0][1],  # 시가총액
+                '거래량': trading_cnt,  # 거래량
                 '지배주주자본': capital,  # 지배주주지분
                 "최대주주지분율": jasa[0][3],  # 최대주주지분율
                 jemu[17][0]: roes,
@@ -275,8 +282,8 @@ for acode in mdf.index:
                     'EPS최근증가율': recent_eps,
                     'EPS증가율_ORG': eps,
                     'EPS증가율_AVG': epsavg,
-                    'market_cap': stock[0][1],  # 시가총액(억)
-                    'trading_cnt': trading_cnt,  # 거래량
+                    '시가총액': stock[0][1],  # 시가총액(억)
+                    '거래량': trading_cnt,  # 거래량
                     '지배주주자본': capital,  # 지배주주지분
                     "최대주주지분율": jasa[0][3],  # 최대주주지분율
                     jemu[17][0]: roes,
@@ -291,20 +298,32 @@ for acode in mdf.index:
 
 if index > 0:
     df = pd.DataFrame(data=data)
-    df = df.set_index('code', 'name')
 
-    # sorting
-    df2 = df.sort_values(by='est_level', ascending=False)
+    # 결과가 비었을 가능성 방어
+    if df.empty:
+        print("⚠️ 조건을 만족하는 종목이 없어 결과가 비어 있습니다. price_level 조건 등을 확인하세요.")
+        sys.exit(0)
+
+    # 인덱스 설정은 컬럼 존재 여부 확인 후 적용
+    # if {'code', 'name'}.issubset(df.columns):
+    #     # df = df.set_index(['code', 'name'], inplace=False)
+    # else:
+    #     print("⚠️ 결과 DataFrame에 'code' 또는 'name' 컬럼이 없습니다. 현재 컬럼:", df.columns.tolist())
+
+    # 정렬 컬럼이 있을 때만 정렬
+    df2 = df.sort_values(by='est_level', ascending=False) if 'est_level' in df.columns else df
 
     has_dividend = False
-    if dividend is not None and len(dividend) > 0:
+    if dividend:
         dd = pd.DataFrame(data=dividend)
-        dd = dd.set_index('code', 'name')
-        dd2 = dd.sort_values(by='배당수익률', ascending=False)
+        # if {'code', 'name'}.issubset(dd.columns):
+        #     dd = dd.set_index(['code', 'name'], inplace=False)
+        dd2 = dd.sort_values(by='배당수익률', ascending=False) if '배당수익률' in dd.columns else dd
         has_dividend = True
 
     today = date.today()
     filename = "./srim_my_daily/srim_hh_" + today.strftime("%Y%m%d") + ".xlsx"
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
 
     with pd.ExcelWriter(filename, engine="xlsxwriter") as writer:
         df2.to_excel(writer, sheet_name="rim")

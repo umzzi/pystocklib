@@ -67,17 +67,25 @@ for acode in code_list:
                 data.append({'code': acode[0], 'name': acode[1], 'curPrice': others[0], 'estPrice20%': estPrice2,
                              'disparity20': disparity20, 'roe': roe, 'capital': isCr[1]})
 
+# Check if data has items
+print(f"Number of records collected: {len(data)}")
+
 # filtering the company (ROE > k)
-df = pd.DataFrame(data=data)
-df = df.set_index('code')
-'''
-cond = df['roe'] > k
-df = df[cond]
-'''
-# sorting
-df2 = df.sort_values(by='disparity20', ascending=False)
+if not data:
+    print("Warning: No data collected!")
+    # Handle empty case
+else:
+    df = pd.DataFrame(data=data)
+    print("Available columns:", df.columns.tolist())
+    print("DataFrame shape:", df.shape)
+    print("First few rows:\n", df.head())
+    df = df.set_index('code')
+    # sorting
+    df2 = df.sort_values(by='disparity20', ascending=False)
 
-today = date.today()
-df2.to_excel("srim_hh2_"+ today.strftime("%Y%m%d") + ".xlsx")
+    today = date.today()
+    df2.to_excel("srim_hh2_"+ today.strftime("%Y%m%d") + ".xlsx")
+    print(df2)
 
-print(df2)
+
+
