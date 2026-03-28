@@ -48,7 +48,7 @@ for acode in df.index:
         if estPrice1 is not None:
             estPrice1 = round(estPrice1)
         if estPrice2 is not None:
-            estPrice2 = round(estPrice2)
+            estPrice2 = round(estPrice2)[s ]
         if others[9] is not None:
             disparity20 = round(others[9], 2)
         else:

@@ -6,7 +6,7 @@ create table my_stock (
  name varchar(100),
  register_date DATE,
  PRIMARY KEY (code)
- );장
+ );
 
 
  /**

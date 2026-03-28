@@ -1,4 +1,5 @@
 import sys
+from io import StringIO
 
 from pystocklib.common import *
 from datetime import date
@@ -85,6 +86,11 @@ else:
 
 # k
 k = srim_reader.get_5years_earning_rate()
+if k is None or k == 0:
+    k = 8.0  # 기본값: BBB- 5년 평균 회사채 수익률
+    print(f'kisrating.com에서 k값을 가져오지 못해 기본값 {k}%를 사용합니다.')
+else:
+    print(f'요구수익률 k = {k}%')
 
 index = 0
 data = []
@@ -99,7 +105,7 @@ for acode in mdf.index:
         time.sleep(1)
 
     try :
-         df = pd.read_html(hh_reader.get_html_fnguide(code, gb=0))
+         df = pd.read_html(StringIO(hh_reader.get_html_fnguide(code, gb=0)))
     except:
         print(f'{index}/{len(mdf.index)}:{code}:{ticker}')
         continue
@@ -179,7 +185,7 @@ for acode in mdf.index:
     price_level = srim_calculator.get_price_level(cur_price, prices)
 
     # fnguide 재무비율 페이지의 EPS증가율 가져오기
-    gf = pd.read_html(hh_reader.get_html_fnguide(code, gb=2))
+    gf = pd.read_html(StringIO(hh_reader.get_html_fnguide(code, gb=2)))
     eps_incr_ratio = gf[0].values
     pegr = 0
     eps = []
@@ -229,8 +235,8 @@ for acode in mdf.index:
                 'EPS최근증가율': recent_eps,
                 'EPS증가율_ORG': eps,
                 'EPS증가율_AVG': epsavg,
-                'market_cap': stock[0][1],  # 시가총액
-                'trading_cnt': trading_cnt,  # 거래량
+                '시가총액(억)': stock[0][1],  # 시가총액(억원)
+                '거래량': trading_cnt,  # 거래량
                 '지배주주자본': capital,  # 지배주주지분
                 "최대주주지분율": jasa[0][3],  # 최대주주지분율
                 jemu[17][0]: roes,
@@ -275,8 +281,8 @@ for acode in mdf.index:
                     'EPS최근증가율': recent_eps,
                     'EPS증가율_ORG': eps,
                     'EPS증가율_AVG': epsavg,
-                    'market_cap': stock[0][1],  # 시가총액(억)
-                    'trading_cnt': trading_cnt,  # 거래량
+                    '시가총액(억)': stock[0][1],  # 시가총액(억원)
+                    '거래량': trading_cnt,  # 거래량
                     '지배주주자본': capital,  # 지배주주지분
                     "최대주주지분율": jasa[0][3],  # 최대주주지분율
                     jemu[17][0]: roes,
@@ -291,7 +297,7 @@ for acode in mdf.index:
 
 if index > 0:
     df = pd.DataFrame(data=data)
-    df = df.set_index('code', 'name')
+    df = df.set_index(['code', 'name'])
 
     # sorting
     df2 = df.sort_values(by='est_level', ascending=False)
@@ -299,11 +305,13 @@ if index > 0:
     has_dividend = False
     if dividend is not None and len(dividend) > 0:
         dd = pd.DataFrame(data=dividend)
-        dd = dd.set_index('code', 'name')
+        dd = dd.set_index(['code', 'name'])
         dd2 = dd.sort_values(by='배당수익률', ascending=False)
         has_dividend = True
 
     today = date.today()
+    import os
+    os.makedirs("./srim_my_daily", exist_ok=True)
     filename = "./srim_my_daily/srim_hh_" + today.strftime("%Y%m%d") + ".xlsx"
 
     with pd.ExcelWriter(filename, engine="xlsxwriter") as writer:
@@ -317,6 +325,10 @@ if index > 0:
             worksheet2 = writer.sheets['dividend']
 
         # Add a header format.
+
+
+
+
         header_format = workbook.add_format({
             'bold': True,
             'text_wrap': True,

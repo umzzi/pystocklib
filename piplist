@@ -1,0 +1,6 @@
+pip install bs4
+pip install pandas
+pip install requests
+pip install lxml
+pip install html5lib
+pip install openpyxl
