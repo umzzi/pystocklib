@@ -12,3 +12,6 @@ __pycache__/
 
 # Claude runtime
 .claude/scheduled_tasks.lock
+
+# cron 실행 로그
+examples/S-RIM/logs/

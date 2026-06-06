@@ -1,23 +1,10 @@
 #!/bin/sh
+# crontab 등록용 래퍼: exec_srim.sh(크롤링→DB적재→드라이브 업로드)를 실행하고 로그를 남긴다.
+# cron 예) 0 18 * * 1-5 /bin/sh /Users/umzzi/dev/PycharmProjects/pystocklib/examples/S-RIM/exec_srim_cron.sh
 
+basedir=/Users/umzzi/dev/PycharmProjects/pystocklib/examples/S-RIM
+logdir=$basedir/logs
 curdate=`date +%Y%m%d`
-basedir=/Users/user/PycharmProjects/pystocklib/examples/S-RIM/
 
-
-exec_srim.sh
-
-echo $curdate
-#cd $basedir
-
-ACTIVATE="cd /Users/user/PycharmProjects/pystocklib/venv/bin/activate"
-source $ACTIVATE
-
-cd $basedir
-
-cmd1='/Users/user/PycharmProjects/pystocklib/venv/bin/python /Users/user/PycharmProjects/pystocklib/examples/S-RIM/getFnGuide.py TRUE TRUE FALSE'
-$cmd1
-
-cat $cmd1ㄴ
-
-cmd2='/Users/user/PycharmProjects/pystocklib/venv/bin/python /Users/user/PycharmProjects/pystocklib/examples/S-RIM/SrimDbUpdater.py'
-$cmd2
+mkdir -p "$logdir"
+sh "$basedir/exec_srim.sh" >> "$logdir/srim_$curdate.log" 2>&1

@@ -16,3 +16,10 @@ $cmd1
 
 cmd2="$venvdir/bin/python $basedir/SrimDbUpdater.py"
 $cmd2
+
+# 결과 CSV를 구글 드라이브(gdrive:S-RIM)에 자동 업로드 (rclone)
+rclone=/opt/homebrew/bin/rclone
+$rclone copy "$basedir/srim_my_daily/srim_hh_${curdate}.csv" gdrive:srim/ -v
+if [ -f "$basedir/srim_my_daily/srim_hh_${curdate}_dividend.csv" ]; then
+    $rclone copy "$basedir/srim_my_daily/srim_hh_${curdate}_dividend.csv" gdrive:srim/ -v
+fi
