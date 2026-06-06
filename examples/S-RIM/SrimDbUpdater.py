@@ -12,8 +12,8 @@ import math
 class SrimDbUpdater:
     def __init__(self):
         """생성자: MariaDB 연결 및 종목코드 딕셔너리 생성"""
-        self.conn = pymysql.connect(host='localhost', user='root',
-                                    password='1234', db='INVESTAR', charset='utf8')
+        self.conn = pymysql.connect(host='localhost', user='srim_user',
+                                    password='srim_user_123', db='srim', charset='utf8')
         with self.conn.cursor() as curs:
             sql = """
                   CREATE TABLE IF NOT EXISTS my_srim_result (
@@ -59,7 +59,7 @@ class SrimDbUpdater:
             curdate = datetime.now().strftime('%Y%m%d')
             dateformat = "DATE_FORMAT(NOW(), '%Y-%m-%d %H:%i:%s')"
 
-        df = pd.read_excel('/Users/user/PycharmProjects/pystocklib/examples/S-RIM/srim_my_daily/srim_hh_'+curdate+'.xlsx')
+        df = pd.read_excel('/Users/umzzi/dev/PycharmProjects/pystocklib/examples/S-RIM/srim_my_daily/srim_hh_'+curdate+'.xlsx')
         print(curdate)
 
         with self.conn.cursor() as curs:

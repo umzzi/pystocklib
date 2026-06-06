@@ -1,0 +1,11 @@
+# Python venv
+venv/
+# IDE
+.idea/
+# build / packaging
+*.egg-info/
+build/
+__pycache__/
+*.pyc
+# macOS
+.DS_Store

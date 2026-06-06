@@ -33,12 +33,12 @@ def get_html_fnguide(code, gb):
     #print(url)
 
     try:
-        resp = requests.get(url, verify=False)
+        resp = requests.get(url, verify=False, timeout=15)
         return resp.text
     except requests.exceptions.RequestException as error:
         print("Error:", error)
         time.sleep(1)
-        resp = requests.get(url)
+        resp = requests.get(url, verify=False, timeout=15)
         return resp.text
     except AttributeError as e:
         return None
@@ -128,6 +128,81 @@ def get_roe_average(roes):
     return roe
 
 
+def get_row_by_label(values, label, fallback_index=None):
+    """
+    Financial Highlight 등 표(values=ndarray)에서 첫 컬럼 라벨이 label인 행을 반환한다.
+    FnGuide가 행 순서/개수를 바꿔도 '라벨'로 찾으므로 위치 인덱스 밀림에 강건하다.
+    공백 무시 후 정확일치 → 접두일치 순으로 탐색하고, 못 찾으면 fallback_index
+    (이전 위치 기반 동작 보존)를, 그것도 없으면 None을 반환한다.
+    """
+    if values is None:
+        return None
+    target = str(label).replace(" ", "")
+    candidate = None
+    for row in values:
+        cell = str(row[0]).replace(" ", "")
+        if cell == target:
+            return row
+        if candidate is None and cell.startswith(target):
+            candidate = row
+    if candidate is not None:
+        return candidate
+    if fallback_index is not None and fallback_index < len(values):
+        return values[fallback_index]
+    return None
+
+
+ROE_PLAUSIBLE_MAX = 100.0  # %. 이보다 큰 ROE는 자본잠식/일회성이익에 의한 왜곡으로 본다.
+
+
+def is_roe_reliable(roe_row):
+    """
+    ROE 행이 S-RIM에 쓸 만한지 검사한다. 다음이면 부적합(False):
+    - '완전잠식'/'자본잠식' 마커가 있다.
+    - |ROE| 가 비정상적으로 큰(>100%) 값이 있다. 자본이 0에 수렴했던 해
+      (자본잠식 직후 회복기)나 일회성 이익으로 ROE가 1270% 처럼 튄 경우로,
+      이런 종목은 S-RIM 적정주가가 왜곡되므로 제외한다.
+    정상 종목의 한 자리~수십% ROE는 통과한다.
+    """
+    if roe_row is None:
+        return False
+    for cell in roe_row[1:]:
+        if isinstance(cell, str):
+            if '잠식' in cell:
+                return False
+            continue
+        try:
+            v = float(cell)
+        except (TypeError, ValueError):
+            continue
+        if v != v:  # nan
+            continue
+        if abs(v) > ROE_PLAUSIBLE_MAX:
+            return False
+    return True
+
+
+def is_equity_positive(capital):
+    """
+    지배주주지분(억) 리스트에 0 이하 값이 있으면 최근 자본잠식 이력으로 보고
+    S-RIM 부적합(False)으로 판단한다. nan/None 은 건너뛴다.
+    """
+    if not capital:
+        return False
+    for v in capital:
+        if v is None:
+            continue
+        try:
+            v = float(v)
+        except (TypeError, ValueError):
+            continue
+        if v != v:  # nan
+            continue
+        if v <= 0:
+            return False
+    return True
+
+
 def is_capital_up(capitalValue, wantValue):
     comflag = False
     try:
@@ -212,7 +287,7 @@ def get_naver_code(company_code):
     company_code = company_code.replace("A", "")
     url = "http://finance.naver.com/item/main.nhn?code="+company_code
     bs_obj = BeautifulSoup(requests.get(url,
-                                      headers={'User-agent': 'Mozilla/5.0'}).text, "html.parser")
+                                      headers={'User-agent': 'Mozilla/5.0'}, timeout=15).text, "html.parser")
     return bs_obj
 
 
@@ -230,7 +305,7 @@ def read_naver(code, company, pages_to_fetch):
             url = f"http://finance.naver.com/item/sise_day.nhn?code={code}"
             print(url)
             html = BeautifulSoup(requests.get(url,
-                                              headers={'User-agent': 'Mozilla/5.0'}).text, "lxml")
+                                              headers={'User-agent': 'Mozilla/5.0'}, timeout=15).text, "lxml")
             pgrr = html.find("td", class_="pgRR")
             if pgrr is None:
                 return None
@@ -241,7 +316,7 @@ def read_naver(code, company, pages_to_fetch):
             for page in range(1, pages + 1):
                 pg_url = '{}&page={}'.format(url, page)
                 df = df.append(pd.read_html(requests.get(pg_url,
-                                                         headers={'User-agent': 'Mozilla/5.0'}).text)[0])
+                                                         headers={'User-agent': 'Mozilla/5.0'}, timeout=15).text)[0])
                 tmnow = datetime.now().strftime('%Y-%m-%d %H:%M')
                 print('[{}] {} ({}) : {:04d}/{:04d} pages are downloading...'.
                       format(tmnow, company, code, page, pages), end="\r")

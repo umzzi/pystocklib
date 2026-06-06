@@ -6,7 +6,7 @@ from urllib3.exceptions import InsecureRequestWarning
 def get_element_by_css_selector(url, selector, rawdata=False):
     try:
         requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
-        resp = requests.get(url, verify=False)
+        resp = requests.get(url, verify=False, timeout=15)
         print(url)
         html = resp.text
         soup = BeautifulSoup(html, "html5lib")
@@ -27,7 +27,7 @@ def get_element_by_css_selector(url, selector, rawdata=False):
 def get_elements_by_css_selector(url, selector):
     try:
         requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
-        resp = requests.get(url)
+        resp = requests.get(url, timeout=15)
         html = resp.text
         soup = BeautifulSoup(html, "html5lib")
         tags = soup.select(selector)
@@ -44,7 +44,7 @@ def get_code_list_by_market(market=1):
     """
     url = f"http://comp.fnguide.com/SVO2/common/lookup_data.asp?mkt_gb={market}&comp_gb=1"
     requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
-    resp = requests.get(url)
+    resp = requests.get(url, timeout=15)
     data = resp.json()
     df = pd.DataFrame(data)
     df = df.set_index(['cd', 'nm'])

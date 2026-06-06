@@ -17,7 +17,7 @@ cd $basedir
 cmd1='/Users/user/PycharmProjects/pystocklib/venv/bin/python /Users/user/PycharmProjects/pystocklib/examples/S-RIM/getFnGuide.py TRUE TRUE FALSE'
 $cmd1
 
-cat $cmd1
+cat $cmd1ㄴ
 
 cmd2='/Users/user/PycharmProjects/pystocklib/venv/bin/python /Users/user/PycharmProjects/pystocklib/examples/S-RIM/SrimDbUpdater.py'
 $cmd2

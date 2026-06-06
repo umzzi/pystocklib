@@ -124,6 +124,19 @@ for acode in mdf.index:
     self_hold_shares = jasa[4][2]
     jemu = df[10].values
 
+    # Financial Highlight 표의 행을 '라벨'로 찾는다(위치 인덱스 밀림에 강건).
+    # 못 찾으면 기존 위치 인덱스로 폴백하여 동작을 보존한다.
+    roe_row = reader_hh.get_row_by_label(jemu, 'ROE', 17)
+    eps_row = reader_hh.get_row_by_label(jemu, 'EPS(원)', 18)
+    per_row = reader_hh.get_row_by_label(jemu, 'PER', 21)
+    pbr_row = reader_hh.get_row_by_label(jemu, 'PBR', 22)
+    capital_row = reader_hh.get_row_by_label(jemu, '지배주주지분', 9)
+
+    # 자본잠식 종목은 ROE가 비정상값으로 튀어 적정주가가 왜곡 → S-RIM 제외
+    if not reader_hh.is_roe_reliable(roe_row):
+        # print(f'{index}:{ticker} : 자본잠식 → S-RIM 제외')
+        continue
+
     # 시가총액
     market_capital = stock[0][1]
 
@@ -132,18 +145,18 @@ for acode in mdf.index:
     is_cheaper_per = srim_calculator.is_per_compare_sector(cur_per, stock[4][2])
 
     # 4년 ROE
-    roes = reader_hh.get_financial_highlight(jemu[17])
+    roes = reader_hh.get_financial_highlight(roe_row)
     rep_roe = reader_hh.get_roe_average(roes)
 
     # 4년 EPS
-    epslist = reader_hh.get_financial_highlight(jemu[18])
+    epslist = reader_hh.get_financial_highlight(eps_row)
     # eps 증가율 구하기
 
     # 4년 PER
-    pers = reader_hh.get_financial_highlight(jemu[21])
+    pers = reader_hh.get_financial_highlight(per_row)
 
     # 4년 PBR
-    pbrs = reader_hh.get_financial_highlight(jemu[22])
+    pbrs = reader_hh.get_financial_highlight(pbr_row)
     if roeCheck == "TRUE" and rep_roe < k:
         # print(f'{index}:{ticker} : 평균 roe가 요구 수익률보다 낮다')
         continue
@@ -157,7 +170,11 @@ for acode in mdf.index:
         continue
     '''
     # 4년 지배주주자본
-    capital = reader_hh.get_financial_highlight(jemu[9])
+    capital = reader_hh.get_financial_highlight(capital_row)
+    # 지배주주지분이 최근 어느 해라도 (-)/0 이면 자본잠식 이력 → S-RIM 적용 불가
+    if not reader_hh.is_equity_positive(capital):
+        # print(f'{index}:{ticker} : 자본잠식 이력 → S-RIM 제외')
+        continue
     isCr = reader_hh.is_capital_increment(capital)
     if capitalCheck == "TRUE" and not isCr:
         # print(f'{index}:{ticker} : 자기자본이 늘고 있지 않다.')
@@ -179,7 +196,11 @@ for acode in mdf.index:
     price_level = srim_calculator.get_price_level(cur_price, prices)
 
     # fnguide 재무비율 페이지의 EPS증가율 가져오기
-    gf = pd.read_html(hh_reader.get_html_fnguide(code, gb=2))
+    try:
+        gf = pd.read_html(hh_reader.get_html_fnguide(code, gb=2))
+    except:
+        print(f'{index}/{len(mdf.index)}:{code}:{ticker} (gb=2 skip)')
+        continue
     eps_incr_ratio = gf[0].values
     pegr = 0
     eps = []
@@ -233,8 +254,8 @@ for acode in mdf.index:
                 'trading_cnt': trading_cnt,  # 거래량
                 '지배주주자본': capital,  # 지배주주지분
                 "최대주주지분율": jasa[0][3],  # 최대주주지분율
-                jemu[17][0]: roes,
-                jemu[21][0]: pers,
+                roe_row[0]: roes,
+                per_row[0]: pers,
                 stock[1][0]: stock[1][1],  # 매출익
                 stock[2][0]: stock[2][1],  # 영업이익
                 "자기주식수": self_hold_shares,  # 자사주수
@@ -279,8 +300,8 @@ for acode in mdf.index:
                     'trading_cnt': trading_cnt,  # 거래량
                     '지배주주자본': capital,  # 지배주주지분
                     "최대주주지분율": jasa[0][3],  # 최대주주지분율
-                    jemu[17][0]: roes,
-                    jemu[21][0]: pers,
+                    roe_row[0]: roes,
+                    per_row[0]: pers,
                     stock[1][0]: stock[1][1],  # 매출익
                     stock[2][0]: stock[2][1],  # 영업이익
                     "자기주식수": self_hold_shares,  # 자사주수
@@ -291,7 +312,7 @@ for acode in mdf.index:
 
 if index > 0:
     df = pd.DataFrame(data=data)
-    df = df.set_index('code', 'name')
+    df = df.set_index('code')
 
     # sorting
     df2 = df.sort_values(by='est_level', ascending=False)
@@ -299,7 +320,7 @@ if index > 0:
     has_dividend = False
     if dividend is not None and len(dividend) > 0:
         dd = pd.DataFrame(data=dividend)
-        dd = dd.set_index('code', 'name')
+        dd = dd.set_index('code')
         dd2 = dd.sort_values(by='배당수익률', ascending=False)
         has_dividend = True
 
