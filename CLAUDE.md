@@ -27,9 +27,9 @@ pystocklib — S-RIM(사경인 회계사) 기반 한국 주식 적정주가 평�
 
 ### `examples/S-RIM/` 파이프라인
 - `getFnguide.py` → `SrimDbUpdater.py` 2단계 (`exec_srim.sh`가 순차 실행).
-  - ① `getFnguide.py <roeCheck> <capitalCheck> <inputCheck>` (예: `TRUE TRUE FALSE`): 전 종목(~2629개)을 `reader_hh`로 순차 크롤링 → 적정주가 계산 → 엑셀 출력. 1회 20~40분 소요(정상). `inputCheck=FALSE`면 전체, `TRUE`면 스크립트 상단 `input_data` 화이트리스트만.
-  - ② `SrimDbUpdater.py`: 엑셀 첫 시트(rim)를 읽어 MySQL `my_srim_result` 테이블 upsert.
-- 출력: `examples/S-RIM/srim_my_daily/srim_hh_YYYYMMDD.xlsx` (시트: `rim`, `dividend`).
+  - ① `getFnguide.py <roeCheck> <capitalCheck> <inputCheck>` (예: `TRUE TRUE FALSE`): 전 종목(~2629개)을 `reader_hh`로 순차 크롤링 → 적정주가 계산 → CSV 출력(시가총액 내림차순 정렬). 1회 20~40분 소요(정상). `inputCheck=FALSE`면 전체, `TRUE`면 스크립트 상단 `input_data` 화이트리스트만.
+  - ② `SrimDbUpdater.py`: CSV(`pd.read_csv`)를 읽어 MySQL `my_srim_result` 테이블 upsert.
+- 출력: `examples/S-RIM/srim_my_daily/srim_hh_YYYYMMDD.csv` (배당 있으면 `srim_hh_YYYYMMDD_dividend.csv` 추가, 인코딩 `utf-8-sig`). code는 인덱스로 첫 컬럼에 기록.
 - `01~03_*.py`, `my_portfolio*.py` 등은 패키지 사용 예제/분석 스크립트(파이프라인 비포함).
 
 ## DB (MySQL, brew, localhost:3306)
@@ -40,8 +40,9 @@ pystocklib — S-RIM(사경인 회계사) 기반 한국 주식 적정주가 평�
 
 ## 알려진 함정 (이미 해결됨 — 회귀 주의)
 - **HTTP 타임아웃 필수**: `requests.get`에 `timeout=` 없으면 FnGuide 응답 지연 시 무한 hang. `common/__init__.py`, `srim/reader_hh.py`의 모든 요청에 `timeout=15` 적용됨. 새 요청 추가 시에도 반드시 붙일 것.
-- **getFnguide 엑셀 헤더 정렬**: 끝부분 커스텀 헤더 루프가 `worksheet.write(0, col_num+1, ...)`로 **인덱스 1개**를 가정. 따라서 반드시 `df.set_index('code')`(단일 인덱스)여야 헤더가 데이터와 정렬됨. `set_index(['code','name'])`로 하면 헤더가 한 칸씩 밀려 전부 어긋남 — name은 일반 컬럼으로 둘 것.
-- `SrimDbUpdater.py`는 엑셀의 code/name을 일반 컬럼으로 읽음(`pd.read_excel` 기본). DB는 첫 시트(rim)만 사용.
+- **결과 출력은 CSV**: `getFnguide.py`는 `df.set_index('code')` 후 `to_csv`로 저장(code가 첫 컬럼, name은 일반 컬럼). 정렬 기준은 시가총액 내림차순(`market_cap`을 숫자로 변환 후 정렬). 과거 xlsx 출력 시절의 "커스텀 헤더 루프 한 칸 밀림" 함정은 CSV 전환으로 제거됨.
+- `SrimDbUpdater.py`는 CSV를 `pd.read_csv`로 읽고 `itertuples`로 `r.code`/`r.name` 등 접근. 컬럼명이 코드의 `r.xxx`와 일치해야 함.
+- **괴리율(disparity) 부호 = 상승여력**: `srim_calculator.get_srim_disparity`의 disparity = `((적정가/현재가) - 1) * 100`. 저평가(적정가>현재가)면 **+**, 고평가면 **−**. (과거 `(1 - 적정가/현재가)`로 부호가 뒤집혀 있던 버그 수정함 — 회귀 주의.)
 - **FnGuide 표 파싱은 라벨 기반**: `getFnguide.py`는 Financial Highlight 표(`df[10]`)의 행을 위치 인덱스가 아니라 `reader_hh.get_row_by_label(jemu, 'ROE', 17)`로 찾음. FnGuide가 행을 추가/삭제해도 ROE/EPS/지배주주지분을 라벨로 찾아 인덱스 밀림에 강건(못 찾으면 기존 위치로 폴백). 단 표 자체의 순번(`df[8]`=stock, `df[10]`=jemu, `df[4]`=자사주)은 아직 위치 의존이므로 표 추가/삭제 시 별도 점검 필요.
 - **자본잠식/비정상 ROE 종목은 S-RIM 제외**: 자본이 0에 수렴했던(완전잠식 또는 지배주주지분 ≤ 0 이력) 회사는 ROE가 1270%처럼 폭주해 적정주가를 왜곡함. `reader_hh.is_roe_reliable`(`|ROE|>100%`·'잠식' 마커)와 `is_equity_positive`(지배주주지분 이력에 0 이하)로 거른다. 정상 종목 ROE는 한 자리~수십%라 영향 없음. 결과의 ROE가 60%+로 보이면 이 가드를 의심.
 - **큰 괴리율은 버그가 아님**: ROE ≫ k(요구수익률)인 고ROE주는 S-RIM 공식상 적정가가 현재가의 수 배로 나옴(초과이익 영구 자본화). 파싱 오류와 구분할 것.

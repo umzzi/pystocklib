@@ -141,7 +141,8 @@ def estimate_rim_price(net_worth, roe, k, total_shares, self_hold_shares, w=1):
 
 def get_srim_disparity(cur_price, net_worth, roe, k, total_shares, self_hold_shares, w=1):
     """
-    get disparity that is calculated by (cur_price / est_price ) * 100
+    get disparity(상승여력) calculated by ((est_price / cur_price) - 1) * 100
+    저평가(적정가 > 현재가)면 +, 고평가면 -.
     :param code:
     :param k:
     :param w:
@@ -155,10 +156,10 @@ def get_srim_disparity(cur_price, net_worth, roe, k, total_shares, self_hold_sha
         # disparity10 = round((cur_price / est_price1) * 100, 2)
         # disparity20 = round((cur_price / est_price2) * 100, 2)
 
-        #    1 - (est_price/cur_price) , 현재가가 목표가보다 얼마나 저렴한지, 목표가일때 얻을 예상 수익
-        disparity = round((1 - (est_price / cur_price)) * 100, 2)
-        disparity10 = round((1 - (est_price1 / cur_price)) * 100, 2)
-        disparity20 = round((1 - (est_price2 / cur_price)) * 100, 2)
+        #    (est_price/cur_price) - 1 , 목표가(적정가) 도달 시 기대수익(상승여력). 저평가면 +, 고평가면 -.
+        disparity = round(((est_price / cur_price) - 1) * 100, 2)
+        disparity10 = round(((est_price1 / cur_price) - 1) * 100, 2)
+        disparity20 = round(((est_price2 / cur_price) - 1) * 100, 2)
     except:
         disparity = None
         disparity10 = None

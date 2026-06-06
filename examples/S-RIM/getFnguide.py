@@ -314,8 +314,9 @@ if index > 0:
     df = pd.DataFrame(data=data)
     df = df.set_index('code')
 
-    # sorting
-    df2 = df.sort_values(by='est_level', ascending=False)
+    # sorting: 시가총액 높은 순 (문자/콤마 대비 숫자로 변환해 정렬)
+    df['_mcap_sort'] = pd.to_numeric(df['market_cap'].astype(str).str.replace(',', ''), errors='coerce')
+    df2 = df.sort_values(by='_mcap_sort', ascending=False).drop(columns='_mcap_sort')
 
     has_dividend = False
     if dividend is not None and len(dividend) > 0:
@@ -325,30 +326,12 @@ if index > 0:
         has_dividend = True
 
     today = date.today()
-    filename = "./srim_my_daily/srim_hh_" + today.strftime("%Y%m%d") + ".xlsx"
+    # 결과 파일은 CSV (Excel 한글 호환 위해 utf-8-sig). code는 인덱스로 첫 컬럼에 기록됨.
+    filename = "./srim_my_daily/srim_hh_" + today.strftime("%Y%m%d") + ".csv"
+    df2.to_csv(filename, encoding="utf-8-sig")
+    print(f"결과 저장: {filename} ({len(df2)} 종목)")
 
-    with pd.ExcelWriter(filename, engine="xlsxwriter") as writer:
-        df2.to_excel(writer, sheet_name="rim")
-
-        workbook = writer.book
-        worksheet = writer.sheets['rim']
-
-        if has_dividend:
-            dd2.to_excel(writer, sheet_name="dividend")
-            worksheet2 = writer.sheets['dividend']
-
-        # Add a header format.
-        header_format = workbook.add_format({
-            'bold': True,
-            'text_wrap': True,
-            'valign': 'top',
-            'fg_color': '#D7E4BC',
-            'border': 1})
-
-        # Write the column headers with the defined format.
-        for col_num, value in enumerate(df2.columns.values):
-            worksheet.write(0, col_num + 1, value, header_format)
-            if has_dividend: worksheet2.write(0, col_num + 1, value, header_format)
-
-        # Close the Pandas Excel writer and output the Excel file.
-        # writer.save()
+    if has_dividend:
+        div_filename = "./srim_my_daily/srim_hh_" + today.strftime("%Y%m%d") + "_dividend.csv"
+        dd2.to_csv(div_filename, encoding="utf-8-sig")
+        print(f"배당 저장: {div_filename} ({len(dd2)} 종목)")
