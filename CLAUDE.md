@@ -5,8 +5,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 pystocklib — S-RIM(사경인 회계사) 기반 한국 주식 적정주가 평가 라이브러리 + 일일 크롤링/DB 파이프라인.
 
 ## 환경
-- **venv**: `/Users/umzzi/dev/PycharmProjects/pystocklib/venv` (Python 3.9, arm64)
-- **의존성**: pandas, requests, beautifulsoup4, pymysql, numpy, urllib3, lxml, openpyxl, html5lib, xlsxwriter + `pystocklib`(editable `pip install -e .`)
+- **venv**: `/Users/umzzi/dev/hh-harness/repos/pystocklib/venv` (Python 3.9, arm64)
+- **의존성**: `requirements.txt` (pandas, requests, beautifulsoup4, pymysql, numpy, urllib3, lxml, openpyxl, html5lib, xlsxwriter 등) + `pystocklib`(editable `pip install -e .`). 재현: `python3 -m venv venv && ./venv/bin/pip install -r requirements.txt && ./venv/bin/pip install -e .`
 - 시스템 python3에는 패키지가 없으므로 반드시 위 venv 사용. (`source venv/bin/activate`)
 
 ## 자주 쓰는 명령
@@ -14,6 +14,7 @@ pystocklib — S-RIM(사경인 회계사) 기반 한국 주식 적정주가 평�
 - **단일 단계 디버깅**: `python examples/S-RIM/getFnguide.py TRUE TRUE FALSE` (크롤링만), `python examples/S-RIM/SrimDbUpdater.py` (DB 적재만)
 - **단위 테스트**: `python -m unittest pystocklib.srim.test_srim_calculator` (단일: `... test_srim_calculator.TestCase.test_self_shares_count`). pytest 미설치, `unittest` 사용.
 - **라이브러리 단독 확인**: 대부분의 모듈에 `if __name__ == "__main__"` 블록이 있어 직접 실행 가능.
+- **`srim` 스킬**: `.claude/skills/srim`에 일일 실행·크롤링·DB 적재·결과 조회(괴리율/시총 상위)·종목 분석·구글 업로드 절차가 캡슐화돼 있다. 해당 작업은 명령을 직접 조립하기 전에 이 스킬을 먼저 확인.
 
 ## 아키텍처 (big picture)
 두 개의 계층 — 재사용 패키지 `pystocklib/`와 운영 스크립트 `examples/S-RIM/`.

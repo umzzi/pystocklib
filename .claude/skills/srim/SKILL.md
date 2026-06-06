@@ -12,16 +12,16 @@ description: >-
 pystocklib S-RIM(사경인 기반 적정주가) 파이프라인의 자주 쓰는 명령 모음.
 
 ## 공통 전제
-- venv: `/Users/umzzi/dev/PycharmProjects/pystocklib/venv` (시스템 python3엔 패키지 없음 — 반드시 이 venv)
-- PY=`/Users/umzzi/dev/PycharmProjects/pystocklib/venv/bin/python`
-- SRIM 디렉터리: `/Users/umzzi/dev/PycharmProjects/pystocklib/examples/S-RIM`
+- venv: `/Users/umzzi/dev/hh-harness/repos/pystocklib/venv` (시스템 python3엔 패키지 없음 — 반드시 이 venv)
+- PY=`/Users/umzzi/dev/hh-harness/repos/pystocklib/venv/bin/python`
+- SRIM 디렉터리: `/Users/umzzi/dev/hh-harness/repos/pystocklib/examples/S-RIM`
 - DB: pymysql `host=localhost user=srim_user password=srim_user_123 db=srim charset=utf8`, 테이블 `my_srim_result`
 - brew(rclone/mysql): `eval "$(/opt/homebrew/bin/brew shellenv)"`
 - 출력 로그 필터: `2>&1 | grep -vE "NotOpenSSLWarning|warnings.warn|FutureWarning|read_html|StringIO"`
 
 ## 1. 전체 파이프라인 (크롤링→DB→구글시트 업로드)
 ```sh
-cd /Users/umzzi/dev/PycharmProjects/pystocklib/examples/S-RIM && sh exec_srim.sh
+cd /Users/umzzi/dev/hh-harness/repos/pystocklib/examples/S-RIM && sh exec_srim.sh
 ```
 - 전 종목(~2629) 순차 크롤링이라 **20~40분 소요(정상)**. 백그라운드로 돌리고 진행률(`N/2629`)을 모니터링할 것.
 - crontab용: `exec_srim_cron.sh` (로그: `examples/S-RIM/logs/srim_YYYYMMDD.log`).
@@ -49,6 +49,32 @@ PY
 ```
 - 정렬 바꾸기: `ORDER BY market_cap DESC`(시총), `disparity0 DESC`(상승여력).
 - ⚠️ ROE 30%+ 종목은 고ROE/일회성이익 왜곡 의심 → 별도 확인. mysql CLI에 한글 쓰면 인코딩 깨짐, 검증은 pymysql로.
+
+## 3b. 결과 파일(CSV) 보기 — 오늘자 없으면 최신 자동
+"오늘자 결과 보여줘 / 최신 결과 파일" 류 요청에 사용. DB가 아니라 파이프라인이 떨군 CSV를 직접 읽는다.
+```sh
+$PY - <<'PY'
+import glob, os, datetime, pandas as pd
+d = '/Users/umzzi/dev/hh-harness/repos/pystocklib/examples/S-RIM/srim_my_daily'
+today = datetime.date.today().strftime('%Y%m%d')
+f = os.path.join(d, f'srim_hh_{today}.csv')
+if not os.path.exists(f):
+    # 오늘자 없음 → 날짜 내림차순 최신 CSV (배당 변형 제외)
+    cands = sorted(g for g in glob.glob(os.path.join(d,'srim_hh_*.csv')) if '_dividend' not in g)
+    assert cands, '결과 CSV가 없음'
+    f = cands[-1]
+    print(f'⚠️ 오늘자({today}) 없음 → 최신 사용: {os.path.basename(f)}')
+df = pd.read_csv(f)            # utf-8-sig BOM 자동 처리
+print(f'파일: {os.path.basename(f)} | {len(df)}종목 | 시총 내림차순')
+cols = ['name','price','est_price','disparity','rep_roe','market_cap']
+cols = [c for c in cols if c in df.columns]
+import pandas as pd; pd.set_option('display.width',160); pd.set_option('display.unicode.east_asian_width',True)
+print(df[cols].head(15).to_string(index=False))   # 상위 15 (시총 기준)
+PY
+```
+- 정렬 바꾸기: `df.sort_values('disparity', ascending=False)`(상승여력 상위), `df.sort_values('rep_roe', ascending=False)`(고ROE).
+- 특정일: `today` 자리에 `'YYYYMMDD'` 직접 지정. 배당 포함본은 `_dividend.csv`.
+- ⚠️ disparity는 +면 저평가(상승여력), −면 고평가. ROE 30%+는 왜곡 의심.
 
 ## 4. 특정 종목 재무 분석 (FnGuide 직접)
 ```sh
