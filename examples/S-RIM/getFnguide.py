@@ -214,7 +214,7 @@ for acode in mdf.index:
     eps_incr_percent, eps_geo_avg, eps_incre_level = hh_reader.calculate_eps(epslist)
     pegr = srim_calculator.calculate_pegr(eps_geo_avg, cur_per)
 
-    naver_url = "https://finance.naver.com/item/coinfo.nhn?code=" + code.replace("A", "")
+    naver_url = "https://stock.naver.com/domestic/stock/" + code.replace("A", "")
     link = '=HYPERLINK("' + naver_url + '", "' + code + '")'
     consen_url = "http://comp.fnguide.com/SVO2/ASP/SVD_Consensus.asp?pGB=1&gicode=" + code + "&cID=&MenuYn=Y&ReportGB=&NewMenuID=108&stkGb=701"
     consen_link = '=HYPERLINK("' + consen_url + '", "' + ticker + '")'
