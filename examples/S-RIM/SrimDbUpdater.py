@@ -59,7 +59,7 @@ class SrimDbUpdater:
             curdate = datetime.now().strftime('%Y%m%d')
             dateformat = "DATE_FORMAT(NOW(), '%Y-%m-%d %H:%i:%s')"
 
-        df = pd.read_csv('/Users/umzzi/dev/PycharmProjects/pystocklib/examples/S-RIM/srim_my_daily/srim_hh_'+curdate+'.csv')
+        df = pd.read_csv('/Users/umzzi/dev/hh-harness/repos/pystocklib/examples/S-RIM/srim_my_daily/srim_hh_'+curdate+'.csv')
         print(curdate)
 
         with self.conn.cursor() as curs:

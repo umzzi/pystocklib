@@ -8,7 +8,7 @@
     <key>ProgramArguments</key>
     <array>
         <string>/bin/sh</string>
-        <string>/Users/umzzi/dev/PycharmProjects/pystocklib/examples/S-RIM/exec_srim_cron.sh</string>
+        <string>/Users/umzzi/dev/hh-harness/repos/pystocklib/examples/S-RIM/exec_srim_cron.sh</string>
     </array>
 
     <key>StartCalendarInterval</key>
@@ -21,9 +21,9 @@
     </array>
 
     <key>StandardOutPath</key>
-    <string>/Users/umzzi/dev/PycharmProjects/pystocklib/examples/S-RIM/logs/launchd_srim.out</string>
+    <string>/Users/umzzi/dev/hh-harness/repos/pystocklib/examples/S-RIM/logs/launchd_srim.out</string>
     <key>StandardErrorPath</key>
-    <string>/Users/umzzi/dev/PycharmProjects/pystocklib/examples/S-RIM/logs/launchd_srim.err</string>
+    <string>/Users/umzzi/dev/hh-harness/repos/pystocklib/examples/S-RIM/logs/launchd_srim.err</string>
 
     <key>RunAtLoad</key>
     <false/>

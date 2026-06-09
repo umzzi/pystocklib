@@ -1,8 +1,8 @@
 #!/bin/sh
 
 curdate=`date +%Y%m%d`
-basedir=/Users/umzzi/dev/PycharmProjects/pystocklib/examples/S-RIM/
-venvdir=/Users/umzzi/dev/PycharmProjects/pystocklib/venv
+basedir=/Users/umzzi/dev/hh-harness/repos/pystocklib/examples/S-RIM/
+venvdir=/Users/umzzi/dev/hh-harness/repos/pystocklib/venv
 
 
 echo $curdate
