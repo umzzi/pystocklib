@@ -5,7 +5,7 @@
 출력: 콘솔 표 + srim_today_fixed_<날짜>.csv
 """
 import warnings; warnings.filterwarnings('ignore')
-import sys, time, csv
+import os, sys, time, csv
 import pandas as pd
 import pymysql
 import pystocklib.srim.reader as srim_reader
@@ -51,7 +51,7 @@ for i, (code, name) in enumerate(targets, 1):
             excluded.append((name, code, '지배주주지분<=0 이력'))
             continue
 
-        roes = hh.get_financial_highlight(roe_row)
+        roes = hh.get_financial_highlight(roe_row, hh.DEFAULT_ROE_YEARS)
         rep_roe = hh.get_roe_average(roes)
         net_worth = capital[2] * 100000000
 
@@ -67,7 +67,7 @@ for i, (code, name) in enumerate(targets, 1):
 rows = [r for r in rows if r[6] is not None]
 rows.sort(key=lambda r: r[6], reverse=True)
 
-out = f'/Users/umzzi/dev/PycharmProjects/pystocklib/examples/S-RIM/srim_today_fixed_{day}.csv'
+out = os.path.join(os.path.dirname(os.path.abspath(__file__)), f'srim_today_fixed_{day}.csv')
 with open(out, 'w', newline='', encoding='utf-8-sig') as f:
     w = csv.writer(f)
     w.writerow(['name', 'code', 'cur_price', 'est0', 'est1', 'est2', 'disparity(%)', 'rep_roe'])

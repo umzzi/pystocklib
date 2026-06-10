@@ -41,10 +41,16 @@ pystocklib — S-RIM(사경인 회계사) 기반 한국 주식 적정주가 평�
 
 ## 알려진 함정 (이미 해결됨 — 회귀 주의)
 - **HTTP 타임아웃 필수**: `requests.get`에 `timeout=` 없으면 FnGuide 응답 지연 시 무한 hang. `common/__init__.py`, `srim/reader_hh.py`의 모든 요청에 `timeout=15` 적용됨. 새 요청 추가 시에도 반드시 붙일 것.
-- **결과 출력은 CSV**: `getFnguide.py`는 `df.set_index('code')` 후 `to_csv`로 저장(code가 첫 컬럼, name은 일반 컬럼). 정렬 기준은 시가총액 내림차순(`market_cap`을 숫자로 변환 후 정렬). 과거 xlsx 출력 시절의 "커스텀 헤더 루프 한 칸 밀림" 함정은 CSV 전환으로 제거됨.
+- **크롤링은 스레드 풀 병렬**: `getFnguide.py`는 종목 루프를 `process_stock(acode)` 함수로 빼고 `ThreadPoolExecutor(max_workers=MAX_WORKERS)`로 병렬 실행한다(네트워크 I/O 대기 단축, 전체 시장 ~7분 → ~1.5분, 결과 동일). 워커 수는 선택 인자 `argv[4]`(기본 8). `get_html_fnguide`가 매 호출 `requests.get`으로 공유 세션이 없어 스레드 안전하고, 결과는 CPython의 원자적 `list.append`로 전역 `data`/`dividend`에 락 없이 모은다. 부적합/실패는 `return`(과거 `continue`)으로 스킵. 순서는 비결정적이지만 마지막에 시총순 정렬하므로 무관. 워커를 너무 키우면 FnGuide 차단 위험 — 8 권장.
+- **결과 출력은 CSV**: `getFnguide.py`는 `df.set_index('code')` 후 `to_csv`로 저장(code가 첫 컬럼, name은 일반 컬럼). 정렬 기준은 시가총액 내림차순(`market_cap`을 숫자로 변환 후 정렬). 과거 xlsx 출력 시절의 "커스텀 헤더 루프 한 칸 밀림" 함정은 CSV 전환으로 제거됨. 0종목이면 파일 미생성(`if data:`).
 - `SrimDbUpdater.py`는 CSV를 `pd.read_csv`로 읽고 `itertuples`로 `r.code`/`r.name` 등 접근. 컬럼명이 코드의 `r.xxx`와 일치해야 함.
 - **괴리율(disparity) 부호 = 상승여력**: `srim_calculator.get_srim_disparity`의 disparity = `((적정가/현재가) - 1) * 100`. 저평가(적정가>현재가)면 **+**, 고평가면 **−**. (과거 `(1 - 적정가/현재가)`로 부호가 뒤집혀 있던 버그 수정함 — 회귀 주의.)
+- **대표 ROE = 5년 가중평균**: `reader_hh.DEFAULT_ROE_YEARS=5`, `get_roe_average`는 오래된 값보다 최근 값에 큰 가중치(1..n)를 준다. FnGuide가 5개보다 적게 제공하면 가능한 값만 사용한다. 음수 ROE 처리 정책:
+  - **음수(적자 해)는 0으로 가리지 않고 그대로 반영** → 적자 이력이 대표값을 정직하게 끌어내림. (과거엔 0으로 치환해 수익력을 과대평가했음 — 회귀 주의.)
+  - **결측(NaN/파싱불가)은 분자·분모 모두에서 제외**(데이터 없음 ≠ 본전 0%).
+  - **일회성 급등 완충**: 한 해 ROE가 같은 기업 양수해 중앙값의 `ROE_SPIKE_CAP_FACTOR(=2.0)` 배를 넘으면 그 상한으로 클리핑(위로만). 단년 급등이 적정가를 과도하게 밀어올리는 것 방지.
+  - **최근 해 적자 게이트**: `has_recent_loss`(가장 최근 유효 ROE < 0)면 `getFnguide.py`에서 후보 제외(roeCheck=TRUE일 때).
 - **FnGuide 표 파싱은 라벨 기반**: `getFnguide.py`는 Financial Highlight 표(`df[10]`)의 행을 위치 인덱스가 아니라 `reader_hh.get_row_by_label(jemu, 'ROE', 17)`로 찾음. FnGuide가 행을 추가/삭제해도 ROE/EPS/지배주주지분을 라벨로 찾아 인덱스 밀림에 강건(못 찾으면 기존 위치로 폴백). 단 표 자체의 순번(`df[8]`=stock, `df[10]`=jemu, `df[4]`=자사주)은 아직 위치 의존이므로 표 추가/삭제 시 별도 점검 필요.
 - **자본잠식/비정상 ROE 종목은 S-RIM 제외**: 자본이 0에 수렴했던(완전잠식 또는 지배주주지분 ≤ 0 이력) 회사는 ROE가 1270%처럼 폭주해 적정주가를 왜곡함. `reader_hh.is_roe_reliable`(`|ROE|>100%`·'잠식' 마커)와 `is_equity_positive`(지배주주지분 이력에 0 이하)로 거른다. 정상 종목 ROE는 한 자리~수십%라 영향 없음. 결과의 ROE가 60%+로 보이면 이 가드를 의심.
-- **큰 괴리율은 버그가 아님**: ROE ≫ k(요구수익률)인 고ROE주는 S-RIM 공식상 적정가가 현재가의 수 배로 나옴(초과이익 영구 자본화). 파싱 오류와 구분할 것.
+- **큰 괴리율은 버그가 아님**: ROE ≫ k(요구수익률)인 고ROE주는 S-RIM 공식상 적정가가 현재가의 수 배로 나옴(초과이익 영구 자본화). 파싱 오류와 구분할 것. 단 **상승여력 > `reader_hh.DISPARITY_MAX(=200%)`는 단년 ROE 왜곡 등 과대추정으로 보고 후보 제외**(`getFnguide.py`). 후보 상승여력 중앙값이 ~76%로 높아(고ROE 영구자본화) 정상 가치주 보존 위해 200% 채택. 임계값은 조정 가능.
 - **오늘자 결과 재도출 도구**: `examples/S-RIM/rederive_today.py` — DB 최신일 종목을 라벨 파싱+가드로 재계산해 `srim_today_fixed_<날짜>.csv` 생성(전체 파이프라인 20~40분 없이 검증용).

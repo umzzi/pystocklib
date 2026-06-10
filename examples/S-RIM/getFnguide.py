@@ -3,6 +3,7 @@ import sys
 from pystocklib.common import *
 from datetime import date
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pandas as pd
 import pystocklib.srim.reader as srim_reader
@@ -68,6 +69,8 @@ inframe = inframe.set_index(['cd', 'nm'])
 roeCheck = sys.argv[1]
 capitalCheck = sys.argv[2]
 inputCheck = sys.argv[3]
+# 병렬 크롤링 스레드 수(선택 argv[4], 기본 8). FnGuide 과부하/차단 방지 위해 보수적 기본값.
+MAX_WORKERS = int(sys.argv[4]) if len(sys.argv) > 4 else 8
 
 # KOSPI code list
 kospi = get_code_list_by_market(market=2)
@@ -86,23 +89,22 @@ else:
 # k
 k = srim_reader.get_5years_earning_rate()
 
-index = 0
 data = []
 dividend = []
-for acode in mdf.index:
-    # if index == 100: break
+
+
+def process_stock(acode):
+    """한 종목을 크롤·계산해 적합하면 전역 data/dividend 리스트에 append 한다.
+    종목 간 의존성이 없어 스레드 풀로 병렬 실행한다(네트워크 I/O 대기 단축).
+    CPython의 list.append 는 GIL 하에서 원자적이라 락 없이 안전하다.
+    부적합/실패 시 그냥 return."""
     code = acode[0]
     ticker = acode[1]
-    index = index + 1
-    if index % 100 == 0:
-        print(f'{index}/{len(mdf.index)}:{code}:{ticker}')
-        time.sleep(1)
 
     try :
          df = pd.read_html(hh_reader.get_html_fnguide(code, gb=0))
     except:
-        print(f'{index}/{len(mdf.index)}:{code}:{ticker}')
-        continue
+        return
 
     # 현재종가
     price = srim_calculator.parsing_string_sep(df[0][1][0], "/", 0)
@@ -116,8 +118,7 @@ for acode in mdf.index:
     trading_cnt = srim_calculator.won_convert_to_float(df[0][3][0])
 
     if df.__sizeof__() < 200:
-        print(f'{ticker}:{df.__sizeof__()} : 정보가 충분하지 않다.')
-        continue
+        return
 
     stock = df[8].values
     jasa = df[4].values
@@ -134,8 +135,7 @@ for acode in mdf.index:
 
     # 자본잠식 종목은 ROE가 비정상값으로 튀어 적정주가가 왜곡 → S-RIM 제외
     if not reader_hh.is_roe_reliable(roe_row):
-        # print(f'{index}:{ticker} : 자본잠식 → S-RIM 제외')
-        continue
+        return
 
     # 시가총액
     market_capital = stock[0][1]
@@ -144,9 +144,13 @@ for acode in mdf.index:
     cur_per = stock[4][1]
     is_cheaper_per = srim_calculator.is_per_compare_sector(cur_per, stock[4][2])
 
-    # 4년 ROE
-    roes = reader_hh.get_financial_highlight(roe_row)
+    # 5년 ROE 가중평균. FnGuide가 제공하는 값이 5개보다 적으면 가능한 범위만 사용한다.
+    roes = reader_hh.get_financial_highlight(roe_row, reader_hh.DEFAULT_ROE_YEARS)
     rep_roe = reader_hh.get_roe_average(roes)
+
+    # 가장 최근 해가 적자(음수 ROE)면 S-RIM 전제(안정적 초과수익)가 깨짐 → 제외
+    if roeCheck == "TRUE" and reader_hh.has_recent_loss(roes):
+        return
 
     # 4년 EPS
     epslist = reader_hh.get_financial_highlight(eps_row)
@@ -158,8 +162,7 @@ for acode in mdf.index:
     # 4년 PBR
     pbrs = reader_hh.get_financial_highlight(pbr_row)
     if roeCheck == "TRUE" and rep_roe < k:
-        # print(f'{index}:{ticker} : 평균 roe가 요구 수익률보다 낮다')
-        continue
+        return
 
     # 시가 총액이 얼마이상인가?
     '''
@@ -173,12 +176,10 @@ for acode in mdf.index:
     capital = reader_hh.get_financial_highlight(capital_row)
     # 지배주주지분이 최근 어느 해라도 (-)/0 이면 자본잠식 이력 → S-RIM 적용 불가
     if not reader_hh.is_equity_positive(capital):
-        # print(f'{index}:{ticker} : 자본잠식 이력 → S-RIM 제외')
-        continue
+        return
     isCr = reader_hh.is_capital_increment(capital)
     if capitalCheck == "TRUE" and not isCr:
-        # print(f'{index}:{ticker} : 자기자본이 늘고 있지 않다.')
-        continue
+        return
 
     # 영업 이익률이 증가하나?
 
@@ -192,6 +193,13 @@ for acode in mdf.index:
     disparity, *others = srim_calculator.get_srim_disparity(cur_price, net_worth, rep_roe, k,
                                                             total_shares, self_hold_shares, w=0)
 
+    # 상승여력이 비현실적으로 크면 단년 ROE 왜곡 등으로 적정가 과대추정 → 제외
+    try:
+        if float(disparity) > reader_hh.DISPARITY_MAX:
+            return
+    except (TypeError, ValueError):
+        pass
+
     prices = [others[2], others[3], others[4]]
     price_level = srim_calculator.get_price_level(cur_price, prices)
 
@@ -199,8 +207,7 @@ for acode in mdf.index:
     try:
         gf = pd.read_html(hh_reader.get_html_fnguide(code, gb=2))
     except:
-        print(f'{index}/{len(mdf.index)}:{code}:{ticker} (gb=2 skip)')
-        continue
+        return
     eps_incr_ratio = gf[0].values
     pegr = 0
     eps = []
@@ -310,7 +317,25 @@ for acode in mdf.index:
                 }
             )
 
-if index > 0:
+# ===== 병렬 크롤링 실행 (스레드 풀) =====
+codes = list(mdf.index)
+total = len(codes)
+print(f'대상 {total}종목, {MAX_WORKERS} 스레드 병렬 크롤링 시작')
+_done = 0
+with ThreadPoolExecutor(max_workers=MAX_WORKERS) as _ex:
+    _futures = [_ex.submit(process_stock, ac) for ac in codes]
+    for _f in as_completed(_futures):
+        _done += 1
+        if _done % 200 == 0:
+            print(f'  {_done}/{total} ...')
+        try:
+            _f.result()
+        except Exception:
+            pass
+
+print(f'적합 후보 {len(data)}종목 / 배당 {len(dividend)}종목')
+
+if data:
     df = pd.DataFrame(data=data)
     df = df.set_index('code')
 
