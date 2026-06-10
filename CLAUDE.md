@@ -41,7 +41,8 @@ pystocklib — S-RIM(사경인 회계사) 기반 한국 주식 적정주가 평�
 
 ## 알려진 함정 (이미 해결됨 — 회귀 주의)
 - **HTTP 타임아웃 필수**: `requests.get`에 `timeout=` 없으면 FnGuide 응답 지연 시 무한 hang. `common/__init__.py`, `srim/reader_hh.py`의 모든 요청에 `timeout=15` 적용됨. 새 요청 추가 시에도 반드시 붙일 것.
-- **결과 출력은 CSV**: `getFnguide.py`는 `df.set_index('code')` 후 `to_csv`로 저장(code가 첫 컬럼, name은 일반 컬럼). 정렬 기준은 시가총액 내림차순(`market_cap`을 숫자로 변환 후 정렬). 과거 xlsx 출력 시절의 "커스텀 헤더 루프 한 칸 밀림" 함정은 CSV 전환으로 제거됨.
+- **크롤링은 스레드 풀 병렬**: `getFnguide.py`는 종목 루프를 `process_stock(acode)` 함수로 빼고 `ThreadPoolExecutor(max_workers=MAX_WORKERS)`로 병렬 실행한다(네트워크 I/O 대기 단축, 전체 시장 ~7분 → ~1.5분, 결과 동일). 워커 수는 선택 인자 `argv[4]`(기본 8). `get_html_fnguide`가 매 호출 `requests.get`으로 공유 세션이 없어 스레드 안전하고, 결과는 CPython의 원자적 `list.append`로 전역 `data`/`dividend`에 락 없이 모은다. 부적합/실패는 `return`(과거 `continue`)으로 스킵. 순서는 비결정적이지만 마지막에 시총순 정렬하므로 무관. 워커를 너무 키우면 FnGuide 차단 위험 — 8 권장.
+- **결과 출력은 CSV**: `getFnguide.py`는 `df.set_index('code')` 후 `to_csv`로 저장(code가 첫 컬럼, name은 일반 컬럼). 정렬 기준은 시가총액 내림차순(`market_cap`을 숫자로 변환 후 정렬). 과거 xlsx 출력 시절의 "커스텀 헤더 루프 한 칸 밀림" 함정은 CSV 전환으로 제거됨. 0종목이면 파일 미생성(`if data:`).
 - `SrimDbUpdater.py`는 CSV를 `pd.read_csv`로 읽고 `itertuples`로 `r.code`/`r.name` 등 접근. 컬럼명이 코드의 `r.xxx`와 일치해야 함.
 - **괴리율(disparity) 부호 = 상승여력**: `srim_calculator.get_srim_disparity`의 disparity = `((적정가/현재가) - 1) * 100`. 저평가(적정가>현재가)면 **+**, 고평가면 **−**. (과거 `(1 - 적정가/현재가)`로 부호가 뒤집혀 있던 버그 수정함 — 회귀 주의.)
 - **대표 ROE = 5년 가중평균**: `reader_hh.DEFAULT_ROE_YEARS=5`, `get_roe_average`는 오래된 값보다 최근 값에 큰 가중치(1..n)를 준다. FnGuide가 5개보다 적게 제공하면 가능한 값만 사용한다. 음수 ROE 처리 정책:
