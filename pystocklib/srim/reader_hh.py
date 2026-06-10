@@ -92,8 +92,8 @@ DEFAULT_ROE_YEARS = 5
 # 상한 처리한다. 단년 ROE 급등이 적정가를 과도하게 밀어올리는 문제를 줄인다.
 ROE_SPIKE_CAP_FACTOR = 2.0
 # 상승여력(괴리율)이 이보다 크면 단년 ROE 왜곡 등에 의한 적정가 과대추정으로 보고
-# S-RIM 후보에서 제외한다.
-DISPARITY_MAX = 150.0
+# S-RIM 후보에서 제외한다. (후보 분포상 중앙값 ~76%, 정상 고ROE주 보존을 위해 200%로 설정)
+DISPARITY_MAX = 200.0
 
 
 def get_financial_highlight(value, ret_cnt=4):

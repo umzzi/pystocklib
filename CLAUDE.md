@@ -51,5 +51,5 @@ pystocklib — S-RIM(사경인 회계사) 기반 한국 주식 적정주가 평�
   - **최근 해 적자 게이트**: `has_recent_loss`(가장 최근 유효 ROE < 0)면 `getFnguide.py`에서 후보 제외(roeCheck=TRUE일 때).
 - **FnGuide 표 파싱은 라벨 기반**: `getFnguide.py`는 Financial Highlight 표(`df[10]`)의 행을 위치 인덱스가 아니라 `reader_hh.get_row_by_label(jemu, 'ROE', 17)`로 찾음. FnGuide가 행을 추가/삭제해도 ROE/EPS/지배주주지분을 라벨로 찾아 인덱스 밀림에 강건(못 찾으면 기존 위치로 폴백). 단 표 자체의 순번(`df[8]`=stock, `df[10]`=jemu, `df[4]`=자사주)은 아직 위치 의존이므로 표 추가/삭제 시 별도 점검 필요.
 - **자본잠식/비정상 ROE 종목은 S-RIM 제외**: 자본이 0에 수렴했던(완전잠식 또는 지배주주지분 ≤ 0 이력) 회사는 ROE가 1270%처럼 폭주해 적정주가를 왜곡함. `reader_hh.is_roe_reliable`(`|ROE|>100%`·'잠식' 마커)와 `is_equity_positive`(지배주주지분 이력에 0 이하)로 거른다. 정상 종목 ROE는 한 자리~수십%라 영향 없음. 결과의 ROE가 60%+로 보이면 이 가드를 의심.
-- **큰 괴리율은 버그가 아님**: ROE ≫ k(요구수익률)인 고ROE주는 S-RIM 공식상 적정가가 현재가의 수 배로 나옴(초과이익 영구 자본화). 파싱 오류와 구분할 것. 단 **상승여력 > `reader_hh.DISPARITY_MAX(=150%)`는 단년 ROE 왜곡 등 과대추정으로 보고 후보 제외**(`getFnguide.py`). 임계값은 조정 가능.
+- **큰 괴리율은 버그가 아님**: ROE ≫ k(요구수익률)인 고ROE주는 S-RIM 공식상 적정가가 현재가의 수 배로 나옴(초과이익 영구 자본화). 파싱 오류와 구분할 것. 단 **상승여력 > `reader_hh.DISPARITY_MAX(=200%)`는 단년 ROE 왜곡 등 과대추정으로 보고 후보 제외**(`getFnguide.py`). 후보 상승여력 중앙값이 ~76%로 높아(고ROE 영구자본화) 정상 가치주 보존 위해 200% 채택. 임계값은 조정 가능.
 - **오늘자 결과 재도출 도구**: `examples/S-RIM/rederive_today.py` — DB 최신일 종목을 라벨 파싱+가드로 재계산해 `srim_today_fixed_<날짜>.csv` 생성(전체 파이프라인 20~40분 없이 검증용).
