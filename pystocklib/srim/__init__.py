@@ -61,7 +61,8 @@ def estimate_price(code, k, w=1):
 
 def get_disparity(code, k, w=1):
     """
-    get disparity that is calculated by (cur_price / est_price ) * 100
+    get upside disparity calculated by ((est_price / cur_price) - 1) * 100.
+    저평가(적정가 > 현재가)면 +, 고평가면 -.
     :param code:
     :param k:
     :param w:
@@ -71,8 +72,8 @@ def get_disparity(code, k, w=1):
     cur_price = reader.get_current_price(code)
 
     try:
-        disparity = (cur_price / est_price) * 100
-        disparity20 = (cur_price / price2) * 100
+        disparity = ((est_price / cur_price) - 1) * 100
+        disparity20 = ((price2 / cur_price) - 1) * 100
     except:
         disparity = None
         disparity20 = None
@@ -89,6 +90,5 @@ if __name__ == "__main__":
     #print(get_disparity("005930", k, w=0.3))
 
     print(estimate_price("023460", k))
-
 
 

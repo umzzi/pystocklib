@@ -144,8 +144,8 @@ for acode in mdf.index:
     cur_per = stock[4][1]
     is_cheaper_per = srim_calculator.is_per_compare_sector(cur_per, stock[4][2])
 
-    # 4년 ROE
-    roes = reader_hh.get_financial_highlight(roe_row)
+    # 5년 ROE 가중평균. FnGuide가 제공하는 값이 5개보다 적으면 가능한 범위만 사용한다.
+    roes = reader_hh.get_financial_highlight(roe_row, reader_hh.DEFAULT_ROE_YEARS)
     rep_roe = reader_hh.get_roe_average(roes)
 
     # 4년 EPS

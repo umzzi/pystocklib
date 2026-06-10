@@ -44,6 +44,7 @@ pystocklib — S-RIM(사경인 회계사) 기반 한국 주식 적정주가 평�
 - **결과 출력은 CSV**: `getFnguide.py`는 `df.set_index('code')` 후 `to_csv`로 저장(code가 첫 컬럼, name은 일반 컬럼). 정렬 기준은 시가총액 내림차순(`market_cap`을 숫자로 변환 후 정렬). 과거 xlsx 출력 시절의 "커스텀 헤더 루프 한 칸 밀림" 함정은 CSV 전환으로 제거됨.
 - `SrimDbUpdater.py`는 CSV를 `pd.read_csv`로 읽고 `itertuples`로 `r.code`/`r.name` 등 접근. 컬럼명이 코드의 `r.xxx`와 일치해야 함.
 - **괴리율(disparity) 부호 = 상승여력**: `srim_calculator.get_srim_disparity`의 disparity = `((적정가/현재가) - 1) * 100`. 저평가(적정가>현재가)면 **+**, 고평가면 **−**. (과거 `(1 - 적정가/현재가)`로 부호가 뒤집혀 있던 버그 수정함 — 회귀 주의.)
+- **대표 ROE = 5년 가중평균**: `reader_hh.DEFAULT_ROE_YEARS=5`, `get_roe_average`는 오래된 값보다 최근 값에 큰 가중치(1..5)를 준다. 음수/결측 ROE는 0으로 반영해 턴어라운드 기업을 과하게 낙관하지 않는다. FnGuide가 5개보다 적게 제공하면 가능한 값만 사용한다.
 - **FnGuide 표 파싱은 라벨 기반**: `getFnguide.py`는 Financial Highlight 표(`df[10]`)의 행을 위치 인덱스가 아니라 `reader_hh.get_row_by_label(jemu, 'ROE', 17)`로 찾음. FnGuide가 행을 추가/삭제해도 ROE/EPS/지배주주지분을 라벨로 찾아 인덱스 밀림에 강건(못 찾으면 기존 위치로 폴백). 단 표 자체의 순번(`df[8]`=stock, `df[10]`=jemu, `df[4]`=자사주)은 아직 위치 의존이므로 표 추가/삭제 시 별도 점검 필요.
 - **자본잠식/비정상 ROE 종목은 S-RIM 제외**: 자본이 0에 수렴했던(완전잠식 또는 지배주주지분 ≤ 0 이력) 회사는 ROE가 1270%처럼 폭주해 적정주가를 왜곡함. `reader_hh.is_roe_reliable`(`|ROE|>100%`·'잠식' 마커)와 `is_equity_positive`(지배주주지분 이력에 0 이하)로 거른다. 정상 종목 ROE는 한 자리~수십%라 영향 없음. 결과의 ROE가 60%+로 보이면 이 가드를 의심.
 - **큰 괴리율은 버그가 아님**: ROE ≫ k(요구수익률)인 고ROE주는 S-RIM 공식상 적정가가 현재가의 수 배로 나옴(초과이익 영구 자본화). 파싱 오류와 구분할 것.

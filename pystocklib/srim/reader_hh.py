@@ -87,45 +87,51 @@ def ext_fin_fnguide_data(ticker, gb, item, n, freq="a"):
     return (v)
 
 
-def get_financial_highlight(value, ret_cnt=3):
-    i = 0
-    output = []
-    for x in value:
-        if i == 0:
-            i = i + 1
-            continue
-        try:
-            output.append(float(x))
-            i = i + 1
-            if i > ret_cnt + 1:
-                break
+DEFAULT_ROE_YEARS = 5
 
-        except:
+
+def get_financial_highlight(value, ret_cnt=4):
+    output = []
+    if value is None:
+        return output
+
+    for x in value[1:]:
+        if len(output) >= ret_cnt:
+            break
+        try:
+            output.append(float(str(x).replace(',', '')))
+        except (TypeError, ValueError):
             output.append(0)
     return output
 
 
-def get_roe_average(roes):
-    roes0 = 0
-    roes1 = 0
-    roes2 = 0
+def get_roe_average(roes, years=DEFAULT_ROE_YEARS):
+    """
+    S-RIM 대표 ROE.
 
-    if roes[0] is not None and roes[0] > 0:
-        roes0 = float(roes[0])
-    if roes[1] is not None and roes[1] > 0:
-        roes1 = float(roes[1])
-    if roes[2] is not None and roes[2] > 0:
-        roes2 = float(roes[2])
-    roe = (roes0 + roes1 * 2 + roes2 * 3) / 6  # weighting average
-    '''
-    # uptrend or downtrend
-    if roes0 <= roes1 <= roes2 or roes0 >= roes1 >= roes2:
-        roe = roes2
-    else:
-        roe = (roes0 + roes1 * 2 + roes2 * 3) / 6  # weighting average
-        # print(f'{roe}:{roes0}:{roes1}:{roes2}')
-    '''
-    return roe
+    최근 값에 더 큰 가중치를 주되, 적자/0 이하 ROE는 0으로 반영한다.
+    이렇게 하면 턴어라운드 기업을 과하게 낙관하지 않고, 1년짜리 일회성
+    이익이 적정가를 과도하게 밀어올리는 문제도 줄일 수 있다.
+    """
+    if not roes:
+        return 0
+
+    selected = roes[:years]
+    weighted_sum = 0
+    weight_sum = 0
+    for idx, roe in enumerate(selected, start=1):
+        try:
+            roe = float(roe)
+        except (TypeError, ValueError):
+            roe = 0
+        if roe != roe or roe < 0:
+            roe = 0
+        weighted_sum += roe * idx
+        weight_sum += idx
+
+    if weight_sum == 0:
+        return 0
+    return weighted_sum / weight_sum
 
 
 def get_row_by_label(values, label, fallback_index=None):

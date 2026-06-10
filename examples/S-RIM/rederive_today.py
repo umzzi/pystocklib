@@ -51,7 +51,7 @@ for i, (code, name) in enumerate(targets, 1):
             excluded.append((name, code, '지배주주지분<=0 이력'))
             continue
 
-        roes = hh.get_financial_highlight(roe_row)
+        roes = hh.get_financial_highlight(roe_row, hh.DEFAULT_ROE_YEARS)
         rep_roe = hh.get_roe_average(roes)
         net_worth = capital[2] * 100000000
 
