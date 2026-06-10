@@ -88,6 +88,12 @@ def ext_fin_fnguide_data(ticker, gb, item, n, freq="a"):
 
 
 DEFAULT_ROE_YEARS = 5
+# 한 해 ROE가 같은 기업 '양수 해' 중앙값의 이 배수를 넘으면 일회성 급등으로 보고
+# 상한 처리한다. 단년 ROE 급등이 적정가를 과도하게 밀어올리는 문제를 줄인다.
+ROE_SPIKE_CAP_FACTOR = 2.0
+# 상승여력(괴리율)이 이보다 크면 단년 ROE 왜곡 등에 의한 적정가 과대추정으로 보고
+# S-RIM 후보에서 제외한다.
+DISPARITY_MAX = 150.0
 
 
 def get_financial_highlight(value, ret_cnt=4):
@@ -105,33 +111,85 @@ def get_financial_highlight(value, ret_cnt=4):
     return output
 
 
+def _median(values):
+    s = sorted(values)
+    n = len(s)
+    if n == 0:
+        return 0
+    mid = n // 2
+    if n % 2:
+        return s[mid]
+    return (s[mid - 1] + s[mid]) / 2
+
+
+def _dampen_roe_spikes(vals, factor=ROE_SPIKE_CAP_FACTOR):
+    """
+    같은 기업 '양수 해' ROE 중앙값의 factor 배를 상한으로, 위로 튄 일회성
+    급등 ROE를 완충한다. 아래로는 건드리지 않으므로 적자 해는 그대로 남는다.
+    양수 해가 없으면 완충하지 않는다.
+    """
+    positives = [v for v in vals if v > 0]
+    if not positives:
+        return list(vals)
+    cap = _median(positives) * factor
+    return [min(v, cap) for v in vals]
+
+
 def get_roe_average(roes, years=DEFAULT_ROE_YEARS):
     """
-    S-RIM 대표 ROE.
+    S-RIM 대표 ROE = 최근일수록 큰 가중치를 둔 가중 산술평균.
 
-    최근 값에 더 큰 가중치를 주되, 적자/0 이하 ROE는 0으로 반영한다.
-    이렇게 하면 턴어라운드 기업을 과하게 낙관하지 않고, 1년짜리 일회성
-    이익이 적정가를 과도하게 밀어올리는 문제도 줄일 수 있다.
+    - 음수 ROE(적자 해)는 0으로 가리지 않고 그대로 반영해 대표값을 정직하게
+      끌어내린다. (적자 이력 기업을 과도하게 낙관하지 않기 위함)
+    - 결측(NaN/파싱불가)은 분자/분모 모두에서 제외한다. (데이터 없음 ≠ 본전 0%)
+    - 한 해가 같은 기업 양수해 중앙값의 ROE_SPIKE_CAP_FACTOR 배를 넘으면
+      일회성 급등으로 보고 상한으로 완충한다.
+    사용 가능한 값들에 대해 오래된→최근 순으로 1..n 가중치를 부여한다.
     """
     if not roes:
         return 0
 
-    selected = roes[:years]
-    weighted_sum = 0
-    weight_sum = 0
-    for idx, roe in enumerate(selected, start=1):
+    vals = []
+    for roe in roes[:years]:
         try:
             roe = float(roe)
         except (TypeError, ValueError):
-            roe = 0
-        if roe != roe or roe < 0:
-            roe = 0
+            continue  # 결측/파싱불가 → 제외
+        if roe != roe:  # nan → 제외
+            continue
+        vals.append(roe)
+    if not vals:
+        return 0
+
+    vals = _dampen_roe_spikes(vals)
+
+    weighted_sum = 0
+    weight_sum = 0
+    for idx, roe in enumerate(vals, start=1):
         weighted_sum += roe * idx
         weight_sum += idx
 
     if weight_sum == 0:
         return 0
     return weighted_sum / weight_sum
+
+
+def has_recent_loss(roes):
+    """
+    가장 최근 연도 ROE가 음수(현재 적자)면 S-RIM 대표값의 전제(안정적 초과수익)가
+    깨지므로 후보에서 제외하기 위한 게이트. roes 는 오래된→최근 순서이며 마지막
+    유효값이 가장 최근 해다. 유효값이 없으면 False.
+    """
+    recent = None
+    for roe in roes:
+        try:
+            v = float(roe)
+        except (TypeError, ValueError):
+            continue
+        if v != v:  # nan
+            continue
+        recent = v
+    return recent is not None and recent < 0
 
 
 def get_row_by_label(values, label, fallback_index=None):

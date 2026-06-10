@@ -148,6 +148,11 @@ for acode in mdf.index:
     roes = reader_hh.get_financial_highlight(roe_row, reader_hh.DEFAULT_ROE_YEARS)
     rep_roe = reader_hh.get_roe_average(roes)
 
+    # 가장 최근 해가 적자(음수 ROE)면 S-RIM 전제(안정적 초과수익)가 깨짐 → 제외
+    if roeCheck == "TRUE" and reader_hh.has_recent_loss(roes):
+        # print(f'{index}:{ticker} : 최근 해 적자 → S-RIM 제외')
+        continue
+
     # 4년 EPS
     epslist = reader_hh.get_financial_highlight(eps_row)
     # eps 증가율 구하기
@@ -191,6 +196,14 @@ for acode in mdf.index:
     # cur_price, net_worth, roe, k, total_shares, self_total_shares, w=1
     disparity, *others = srim_calculator.get_srim_disparity(cur_price, net_worth, rep_roe, k,
                                                             total_shares, self_hold_shares, w=0)
+
+    # 상승여력이 비현실적으로 크면 단년 ROE 왜곡 등으로 적정가 과대추정 → 제외
+    try:
+        if float(disparity) > reader_hh.DISPARITY_MAX:
+            # print(f'{index}:{ticker} : 상승여력 {disparity}% > {reader_hh.DISPARITY_MAX} → 과대추정 제외')
+            continue
+    except (TypeError, ValueError):
+        pass
 
     prices = [others[2], others[3], others[4]]
     price_level = srim_calculator.get_price_level(cur_price, prices)
