@@ -1,6 +1,8 @@
 import numbers
+import re
 import time
 from datetime import datetime
+from io import StringIO
 from urllib.request import urlopen
 
 from pystocklib.common import *
@@ -32,16 +34,108 @@ def get_html_fnguide(code, gb):
     url = url[gb]
     #print(url)
 
-    try:
-        resp = requests.get(url, verify=False, timeout=15)
-        return resp.text
-    except requests.exceptions.RequestException as error:
-        print("Error:", error)
-        time.sleep(1)
-        resp = requests.get(url, verify=False, timeout=15)
-        return resp.text
-    except AttributeError as e:
+    for attempt, wait in enumerate([0, 3, 8]):
+        if wait:
+            time.sleep(wait)
+        try:
+            resp = requests.get(url, verify=False, timeout=15)
+            return resp.text
+        except requests.exceptions.RequestException as error:
+            print(f"Error(재시도 {attempt+1}/3):", error)
+        except AttributeError:
+            return None
+    return None
+
+
+NAVER_UA = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 '
+                           '(KHTML, like Gecko) Chrome/120 Safari/537.36'}
+
+
+def _to_float(s):
+    if s is None:
         return None
+    m = re.search(r'-?[\d,]+\.?\d*', str(s).replace('\xa0', ''))
+    return float(m.group().replace(',', '')) if m else None
+
+
+def get_naver_snapshot(code):
+    """
+    네이버 polling API에서 실시간 현재가/거래량/종목명을 가져온다.
+
+    FnGuide Snapshot(gb=0)이 2026-06-22 개편 이후 모든 종목코드에 대해 삼성전자
+    페이지를 반환하는 서버측 캐시 버그로 무력화되어(gicode 파라미터 무시), 현재가·
+    거래량 소스를 네이버로 이전했다. gb=0은 더 이상 어떤 용도로도 신뢰할 수 없다.
+    """
+    ncode = code.replace("A", "")
+    resp = requests.get(f"https://polling.finance.naver.com/api/realtime/domestic/stock/{ncode}",
+                         headers=NAVER_UA, timeout=10)
+    data = resp.json()['datas'][0]
+    price = _to_float(data.get('closePrice'))
+    volume = _to_float(data.get('accumulatedTradingVolume'))
+    return price, volume, data.get('stockName')
+
+
+def _clean_invest_label(s):
+    """gb=3 표의 펼치기 버튼 텍스트('계산에 참여한 계정 펼치기')를 라벨에서 제거."""
+    return str(s).replace('\xa0', '').replace(' ', '').replace('계산에참여한계정펼치기', '')
+
+
+def get_invest_row(df, label):
+    """gb=3(투자지표) 표에서 정규화된 라벨로 행을 찾는다. get_row_by_label과 별도인
+    이유는 이 표 특유의 '펼치기' 잡음 제거가 필요해서다."""
+    for i in range(len(df)):
+        if _clean_invest_label(df.iloc[i, 0]).startswith(label):
+            return df.iloc[i]
+    return None
+
+
+def get_invest_tables(code):
+    """
+    FnGuide gb=3(투자지표) 페이지에서 연도별 EPS/BPS/DPS/PER/PBR/SPS와 최근 시가총액을
+    가져온다. gb=0(Snapshot)의 재무하이라이트가 JS 렌더링으로 바뀌어 무력화된 이후
+    (2026-06-22~), 이 페이지가 남은 유일한 서버렌더 종목별 지표 소스다. 은행/증권 등
+    금융업종도 gb=1(재무제표)과 달리 동일 구조로 제공되어 별도 분기 없이 처리된다.
+    리스트는 오래된→최근 연도 순.
+    """
+    html = get_html_fnguide(code, 3)
+    if not html:
+        return None
+    soup = BeautifulSoup(html, 'html.parser')
+    tables = []
+    for t in soup.find_all('table'):
+        if not t.find_all('tr'):
+            continue
+        try:
+            tables.append(pd.read_html(StringIO(str(t)))[0])
+        except (ValueError, IndexError):
+            continue
+    if len(tables) < 2:
+        return None
+    price_tbl, per_share_tbl = tables[0], tables[1]
+
+    years = [c for c in per_share_tbl.columns if re.match(r'20\d\d/12', str(c))]
+    if not years:
+        return None
+
+    def year_values(label):
+        row = get_invest_row(per_share_tbl, label)
+        if row is None:
+            return [None] * len(years)
+        return [_to_float(row[y]) for y in years]
+
+    mcap_row = get_invest_row(price_tbl, '시가총액')
+    market_cap = _to_float(mcap_row.iloc[-2]) if mcap_row is not None else None
+
+    return {
+        'years': years,
+        'eps_list': year_values('EPS(원)'),
+        'bps_list': year_values('BPS(원)'),
+        'dps_list': year_values('DPS(보통주'),
+        'sps_list': year_values('SPS(원)'),
+        'per_list': year_values('PER'),
+        'pbr_list': year_values('PBR'),
+        'market_cap': market_cap,
+    }
 
 
 def ext_fin_fnguide_data(ticker, gb, item, n, freq="a"):

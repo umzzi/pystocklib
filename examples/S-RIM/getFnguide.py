@@ -69,8 +69,11 @@ inframe = inframe.set_index(['cd', 'nm'])
 roeCheck = sys.argv[1]
 capitalCheck = sys.argv[2]
 inputCheck = sys.argv[3]
-# 병렬 크롤링 스레드 수(선택 argv[4], 기본 8). FnGuide 과부하/차단 방지 위해 보수적 기본값.
-MAX_WORKERS = int(sys.argv[4]) if len(sys.argv) > 4 else 8
+# 병렬 크롤링 스레드 수(선택 argv[4], 기본 6). 2026-06-29~07-10 사이 CSV가 0종목으로
+# 계속 생성되던 사고는 스레드 수가 아니라 gb=0 재무하이라이트가 JS 렌더링으로 바뀌어
+# read_html이 깨진 게 원인이었다(gb=3 기반으로 데이터 소스 교체함, process_stock 주석 참고).
+# 워커 6개로 2627종목 전체 크롤 시 약 3분17초, 타임아웃 소수(3건) 수준으로 안정적.
+MAX_WORKERS = int(sys.argv[4]) if len(sys.argv) > 4 else 6
 
 # KOSPI code list
 kospi = get_code_list_by_market(market=2)
@@ -97,101 +100,65 @@ def process_stock(acode):
     """한 종목을 크롤·계산해 적합하면 전역 data/dividend 리스트에 append 한다.
     종목 간 의존성이 없어 스레드 풀로 병렬 실행한다(네트워크 I/O 대기 단축).
     CPython의 list.append 는 GIL 하에서 원자적이라 락 없이 안전하다.
-    부적합/실패 시 그냥 return."""
+    부적합/실패 시 그냥 return.
+
+    데이터 소스 (2026-06-22 FnGuide 개편 이후):
+    - 현재가/거래량: 네이버 polling API. FnGuide Snapshot(gb=0)이 모든 종목에
+      삼성전자 페이지를 반환하는 서버 캐시 버그로 무력화되어 이전함.
+    - EPS/BPS/DPS/PER/PBR/시가총액: FnGuide gb=3(투자지표). gb=0 재무하이라이트가
+      JS 렌더링으로 바뀌어 무력화된 이후 남은 유일한 서버렌더 종목별 지표 소스.
+      은행/증권 등 금융업종도 gb=1과 달리 동일 구조라 별도 분기가 필요 없다.
+    - ROE는 EPS/BPS로 직접 계산(대표ROE는 기존과 동일하게 5년 가중평균).
+    - 지배주주자본 총액 대신 BPS(주당순자산)를 net_worth로 써서 1주 기준으로 RIM을
+      계산한다(자사주 수량은 더 이상 구할 수 없어 조정 생략, 영향은 미미).
+    - gb=2(재무비율)는 완전히 빈 페이지로 죽어 사용하지 않는다.
+    - 최대주주지분율/자사주수/동종업계PER은 소스가 사라져 근사값으로 대체했다.
+      자세한 내용은 CLAUDE.md 참고.
+    """
     code = acode[0]
     ticker = acode[1]
 
-    try :
-         df = pd.read_html(hh_reader.get_html_fnguide(code, gb=0))
-    except:
+    try:
+        price, trading_cnt, _ = hh_reader.get_naver_snapshot(code)
+    except Exception:
+        return
+    if not price:
         return
 
-    # 현재종가
-    price = srim_calculator.parsing_string_sep(df[0][1][0], "/", 0)
-    cur_price = srim_calculator.won_convert_to_float(price)
-
-    # 발행주수
-    shares = srim_calculator.parsing_string_sep(df[0][1][6], "/", 0)
-    total_shares = srim_calculator.won_convert_to_float(shares)
-
-    # 거래량
-    trading_cnt = srim_calculator.won_convert_to_float(df[0][3][0])
-
-    if df.__sizeof__() < 200:
+    inv = hh_reader.get_invest_tables(code)
+    if inv is None:
+        return
+    eps_list, bps_list = inv['eps_list'], inv['bps_list']
+    if len(eps_list) < 2 or bps_list[-1] is None or bps_list[-1] <= 0:
         return
 
-    stock = df[8].values
-    jasa = df[4].values
-    self_hold_shares = jasa[4][2]
-    jemu = df[10].values
+    roes = [round(e / b * 100, 2) if e is not None and b else None
+            for e, b in zip(eps_list, bps_list)]
 
-    # Financial Highlight 표의 행을 '라벨'로 찾는다(위치 인덱스 밀림에 강건).
-    # 못 찾으면 기존 위치 인덱스로 폴백하여 동작을 보존한다.
-    roe_row = reader_hh.get_row_by_label(jemu, 'ROE', 17)
-    eps_row = reader_hh.get_row_by_label(jemu, 'EPS(원)', 18)
-    per_row = reader_hh.get_row_by_label(jemu, 'PER', 21)
-    pbr_row = reader_hh.get_row_by_label(jemu, 'PBR', 22)
-    capital_row = reader_hh.get_row_by_label(jemu, '지배주주지분', 9)
-
-    # 자본잠식 종목은 ROE가 비정상값으로 튀어 적정주가가 왜곡 → S-RIM 제외
-    if not reader_hh.is_roe_reliable(roe_row):
+    # 자본잠식/비정상 ROE 종목은 적정주가가 왜곡되므로 S-RIM 제외.
+    # is_roe_reliable은 (라벨, 값...) 형태의 행을 기대하므로 더미 라벨을 앞에 붙인다.
+    if not reader_hh.is_roe_reliable([None] + roes):
         return
 
-    # 시가총액
-    market_capital = stock[0][1]
-
-    # 수정주가PER
-    cur_per = stock[4][1]
-    is_cheaper_per = srim_calculator.is_per_compare_sector(cur_per, stock[4][2])
-
-    # 5년 ROE 가중평균. FnGuide가 제공하는 값이 5개보다 적으면 가능한 범위만 사용한다.
-    roes = reader_hh.get_financial_highlight(roe_row, reader_hh.DEFAULT_ROE_YEARS)
+    # 대표 ROE(5년 가중평균, 음수 반영/급등 완충은 get_roe_average에서 처리)
     rep_roe = reader_hh.get_roe_average(roes)
 
     # 가장 최근 해가 적자(음수 ROE)면 S-RIM 전제(안정적 초과수익)가 깨짐 → 제외
     if roeCheck == "TRUE" and reader_hh.has_recent_loss(roes):
         return
-
-    # 4년 EPS
-    epslist = reader_hh.get_financial_highlight(eps_row)
-    # eps 증가율 구하기
-
-    # 4년 PER
-    pers = reader_hh.get_financial_highlight(per_row)
-
-    # 4년 PBR
-    pbrs = reader_hh.get_financial_highlight(pbr_row)
     if roeCheck == "TRUE" and rep_roe < k:
         return
 
-    # 시가 총액이 얼마이상인가?
-    '''
-    std_capital = 1000
-    isCapBigger = reader_hh.is_capital_up(market_capital, std_capital)
-    if not isCapBigger:
-        print(f'{index}:{ticker} : 시가총액이 {market_capital}, {std_capital}억보다 작다')
-        continue
-    '''
-    # 4년 지배주주자본
-    capital = reader_hh.get_financial_highlight(capital_row)
-    # 지배주주지분이 최근 어느 해라도 (-)/0 이면 자본잠식 이력 → S-RIM 적용 불가
-    if not reader_hh.is_equity_positive(capital):
+    # BPS(주당순자산)가 최근 어느 해라도 0 이하면 자본잠식 이력 → S-RIM 적용 불가
+    if not reader_hh.is_equity_positive(bps_list):
         return
-    isCr = reader_hh.is_capital_increment(capital)
+    isCr = reader_hh.is_capital_increment(bps_list)
     if capitalCheck == "TRUE" and not isCr:
         return
 
-    # 영업 이익률이 증가하나?
-
-    net_worth = capital[2]
-    if net_worth is not None:
-        net_worth = net_worth * 100000000
-    else:
-        net_worth = 0
-
-    # cur_price, net_worth, roe, k, total_shares, self_total_shares, w=1
-    disparity, *others = srim_calculator.get_srim_disparity(cur_price, net_worth, rep_roe, k,
-                                                            total_shares, self_hold_shares, w=0)
+    net_worth = bps_list[-1]  # 주당순자산 = RIM의 net_worth, total_shares=1로 1주 기준 계산
+    disparity, *others = srim_calculator.get_srim_disparity(price, net_worth, rep_roe, k,
+                                                             1, 0, w=0)
 
     # 상승여력이 비현실적으로 크면 단년 ROE 왜곡 등으로 적정가 과대추정 → 제외
     try:
@@ -201,121 +168,66 @@ def process_stock(acode):
         pass
 
     prices = [others[2], others[3], others[4]]
-    price_level = srim_calculator.get_price_level(cur_price, prices)
-
-    # fnguide 재무비율 페이지의 EPS증가율 가져오기
-    try:
-        gf = pd.read_html(hh_reader.get_html_fnguide(code, gb=2))
-    except:
+    price_level = srim_calculator.get_price_level(price, prices)
+    if price_level <= 0:
         return
-    eps_incr_ratio = gf[0].values
-    pegr = 0
-    eps = []
-    recent_eps = ""
-    if eps_incr_ratio is not None and len(eps_incr_ratio) > 13:
-        eps = hh_reader.get_financial_highlight(eps_incr_ratio[13], 5)
-        pegr, epsavg = srim_calculator.get_pegr_value(eps, cur_per)
-        recent_eps = eps[-1]
 
-    # eps값으로 계산
-    eps_incr_percent, eps_geo_avg, eps_incre_level = hh_reader.calculate_eps(epslist)
+    eps_incr_percent, eps_geo_avg, eps_incre_level = hh_reader.calculate_eps(eps_list)
+    cur_per = round(price / eps_list[-1], 2) if eps_list[-1] else None
     pegr = srim_calculator.calculate_pegr(eps_geo_avg, cur_per)
+
+    dps = inv['dps_list'][-1] if inv['dps_list'] else None
+    dividend_yield = round((dps or 0) / price * 100, 2) if price else 0.0
 
     naver_url = "https://stock.naver.com/domestic/stock/" + code.replace("A", "")
     link = '=HYPERLINK("' + naver_url + '", "' + code + '")'
-    consen_url = "http://comp.fnguide.com/SVO2/ASP/SVD_Consensus.asp?pGB=1&gicode=" + code + "&cID=&MenuYn=Y&ReportGB=&NewMenuID=108&stkGb=701"
-    consen_link = '=HYPERLINK("' + consen_url + '", "' + ticker + '")'
+    invest_url = "https://comp.fnguide.com/SVO2/ASP/SVD_Invest.asp?pGB=1&gicode=" + code + "&cID=&MenuYn=Y&ReportGB=&NewMenuID=105&stkGb=701"
+    invest_link = '=HYPERLINK("' + invest_url + '", "' + ticker + '")'
 
-    # TODO
-    # code, est_price, est_price1, est_price2, last_date db에 업데이트 하기.
-    if price_level > 0:
-        data.append(
-            {
-                'code': code,
-                'name': ticker,
-                'naverlink': link,
-                'fnlink': consen_link,
-                'est_level': price_level,
-                'price': cur_price,
-                'pegr': pegr,
-                'cur_per': cur_per,
-                'est_price': prices[0],
-                'est_price1': prices[1],
-                'est_price2': prices[2],
-                'disparity': disparity,
-                'disparity1': others[0],
-                'disparity2': others[1],
-                'rep_roe': round(rep_roe, 2),
-                'is_cheap_comp_per': is_cheaper_per,  # 동종업계 per보다 싼가
-                'eps_level': eps_incre_level,  # eps 증가추세에 따른 레벨 부여
-                'eps': stock[3][1],  # EPS,
-                'eps_expect': epslist[-1],
-                'eps_expect_this_year_ratio': eps_incr_percent[-1],  # eps올해예상증가
-                'eps_list': epslist,
-                'eps증가율': eps_incr_percent,
-                'eps증가율기하평균': eps_geo_avg,
-                'EPS최근증가율': recent_eps,
-                'EPS증가율_ORG': eps,
-                'EPS증가율_AVG': epsavg,
-                'market_cap': stock[0][1],  # 시가총액
-                'trading_cnt': trading_cnt,  # 거래량
-                '지배주주자본': capital,  # 지배주주지분
-                "최대주주지분율": jasa[0][3],  # 최대주주지분율
-                roe_row[0]: roes,
-                per_row[0]: pers,
-                stock[1][0]: stock[1][1],  # 매출익
-                stock[2][0]: stock[2][1],  # 영업이익
-                "자기주식수": self_hold_shares,  # 자사주수
-                stock[7][0]: stock[7][1],  # 배당수익
-                isCr: isCr  # 자기자본이 계속 늘고있나.
-            }
-        )
+    row = {
+        'code': code,
+        'name': ticker,
+        'naverlink': link,
+        'fnlink': invest_link,
+        'est_level': price_level,
+        'price': price,
+        'pegr': pegr,
+        'cur_per': cur_per,
+        'est_price': prices[0],
+        'est_price1': prices[1],
+        'est_price2': prices[2],
+        'disparity': disparity,
+        'disparity1': others[0],
+        'disparity2': others[1],
+        'rep_roe': round(rep_roe, 2),
+        'is_cheap_comp_per': True,  # 동종업계 PER 소스가 사라져 항상 통과(과거엔 stock[4][2] 비교)
+        'eps_level': eps_incre_level,
+        'eps': eps_list[-1],
+        'eps_expect': eps_list[-1],
+        'eps_expect_this_year_ratio': eps_incr_percent[-1],
+        'eps_list': eps_list,
+        'eps증가율': eps_incr_percent,
+        'eps증가율기하평균': eps_geo_avg,
+        'EPS최근증가율': eps_incr_percent[-1],
+        'EPS증가율_ORG': eps_incr_percent,
+        'EPS증가율_AVG': eps_geo_avg,
+        'market_cap': inv['market_cap'],
+        'trading_cnt': trading_cnt,
+        '지배주주자본': bps_list,  # 총액이 아니라 BPS(주당순자산) 리스트 — 소스 변경으로 의미 변경됨
+        '최대주주지분율': None,  # 소스 소실
+        'ROE': roes,
+        'PER': inv['per_list'],
+        'PBR': inv['pbr_list'],
+        'SPS': inv['sps_list'],
+        '자기주식수': 0,  # 소스 소실, RIM 계산도 self_hold_shares=0으로 일치
+        '배당수익률': dividend_yield,
+        isCr: isCr,
+    }
+    data.append(row)
 
-        # 배당주 찾기
-        # 최대주주지분이 50%이상 이고 배당이 있는 주식.
-        is_dividend = srim_calculator.make_dividend_stock(jasa[0][3], stock[7][1])
-        if is_dividend:
-            dividend.append(
-                {
-                    'code': code,
-                    'name': ticker,
-                    'naverlink': link,
-                    'fnlink': consen_link,
-                    'est_level': price_level,
-                    'price': cur_price,
-                    'pegr': pegr,
-                    'cur_per': cur_per,
-                    'est_price': prices[0],
-                    'est_price1': prices[1],
-                    'est_price2': prices[2],
-                    'disparity': disparity,
-                    'disparity1': others[0],
-                    'disparity2': others[1],
-                    'rep_roe': round(rep_roe, 2),
-                    'is_cheap_comp_per': is_cheaper_per,  # 동종업계 per보다 싼가
-                    'eps_level': eps_incre_level,  # eps 증가추세에 따른 레벨 부여
-                    'eps': stock[3][1],  # EPS,
-                    'eps_expect': epslist[-1],
-                    'eps_expect_this_year_ratio': eps_incr_percent[-1],  # eps올해예상증가
-                    'eps_list': epslist,
-                    'eps증가율': eps_incr_percent,
-                    'eps증가율기하평균': eps_geo_avg,
-                    'EPS최근증가율': recent_eps,
-                    'EPS증가율_ORG': eps,
-                    'EPS증가율_AVG': epsavg,
-                    'market_cap': stock[0][1],  # 시가총액(억)
-                    'trading_cnt': trading_cnt,  # 거래량
-                    '지배주주자본': capital,  # 지배주주지분
-                    "최대주주지분율": jasa[0][3],  # 최대주주지분율
-                    roe_row[0]: roes,
-                    per_row[0]: pers,
-                    stock[1][0]: stock[1][1],  # 매출익
-                    stock[2][0]: stock[2][1],  # 영업이익
-                    "자기주식수": self_hold_shares,  # 자사주수
-                    stock[7][0]: stock[7][1],  # 배당수익
-                    isCr: isCr  # 자기자본이 계속 늘고있나.
-                }
-            )
+    # 배당주 찾기: 최대주주지분율 소스가 사라져 배당수익률 기준(1%+)으로 대체
+    if dividend_yield > 1.0:
+        dividend.append(row)
 
 # ===== 병렬 크롤링 실행 (스레드 풀) =====
 codes = list(mdf.index)
