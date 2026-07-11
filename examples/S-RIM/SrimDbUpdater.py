@@ -1,3 +1,4 @@
+import sys
 from threading import Timer
 
 import pandas as pd
@@ -85,5 +86,8 @@ class SrimDbUpdater:
                 self.conn.commit()
 
 if __name__ == '__main__':
+    # 선택 인자: 날짜(YYYYMMDD). 생략하면 오늘자 CSV를 읽어 오늘 날짜로 적재(기존 동작).
+    # 지정하면 그 날짜의 srim_hh_<날짜>.csv를 읽어 같은 날짜로 적재(재적재/백필용).
+    hopedate = sys.argv[1] if len(sys.argv) > 1 else None
     dbu = SrimDbUpdater()
-    dbu.update_srim_db()
+    dbu.update_srim_db(hopedate)

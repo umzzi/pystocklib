@@ -69,6 +69,10 @@ inframe = inframe.set_index(['cd', 'nm'])
 roeCheck = sys.argv[1]
 capitalCheck = sys.argv[2]
 inputCheck = sys.argv[3]
+# 출력 파일명 날짜(선택 argv[5], 기본 오늘=YYYYMMDD). 크롤은 항상 FnGuide/네이버의 현재
+# 시점 데이터를 가져오므로 과거 날짜를 지정해도 과거 시세가 나오지는 않는다 — 자정을 걸친
+# 실행이나 재적재(백필) 때 결과 파일명을 원하는 날짜로 맞추기 위한 용도.
+output_date = sys.argv[5] if len(sys.argv) > 5 else date.today().strftime("%Y%m%d")
 # 병렬 크롤링 스레드 수(선택 argv[4], 기본 6). 2026-06-29~07-10 사이 CSV가 0종목으로
 # 계속 생성되던 사고는 스레드 수가 아니라 gb=0 재무하이라이트가 JS 렌더링으로 바뀌어
 # read_html이 깨진 게 원인이었다(gb=3 기반으로 데이터 소스 교체함, process_stock 주석 참고).
@@ -262,13 +266,12 @@ if data:
         dd2 = dd.sort_values(by='배당수익률', ascending=False)
         has_dividend = True
 
-    today = date.today()
     # 결과 파일은 CSV (Excel 한글 호환 위해 utf-8-sig). code는 인덱스로 첫 컬럼에 기록됨.
-    filename = "./srim_my_daily/srim_hh_" + today.strftime("%Y%m%d") + ".csv"
+    filename = "./srim_my_daily/srim_hh_" + output_date + ".csv"
     df2.to_csv(filename, encoding="utf-8-sig")
     print(f"결과 저장: {filename} ({len(df2)} 종목)")
 
     if has_dividend:
-        div_filename = "./srim_my_daily/srim_hh_" + today.strftime("%Y%m%d") + "_dividend.csv"
+        div_filename = "./srim_my_daily/srim_hh_" + output_date + "_dividend.csv"
         dd2.to_csv(div_filename, encoding="utf-8-sig")
         print(f"배당 저장: {div_filename} ({len(dd2)} 종목)")

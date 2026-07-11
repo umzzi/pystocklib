@@ -30,13 +30,15 @@ cd /Users/umzzi/dev/hh-harness/repos/pystocklib/examples/S-RIM && sh exec_srim.s
 
 ## 2. 단계별 실행
 ```sh
-# 크롤링만 → CSV 생성 (진행률 실시간으로 보려면 -u). 5번째 인자=워커 수(선택, 기본 6, 검증값)
+# 크롤링만 → CSV 생성 (진행률 실시간으로 보려면 -u). 5번째=워커 수(선택,기본6), 6번째=출력 파일명 날짜(선택,기본 오늘)
 $PY -u getFnGuide.py TRUE TRUE FALSE 6
-# DB 적재만 (오늘자 CSV 읽음). 특정일: update_srim_db('YYYYMMDD')
+# DB 적재만 (오늘자 CSV 읽음). 특정 날짜 CSV를 적재하려면 인자로 YYYYMMDD 전달
 $PY SrimDbUpdater.py
+$PY SrimDbUpdater.py 20260610   # srim_hh_20260610.csv를 읽어 2026-06-10로 적재(재적재/백필)
 ```
 - 결과: `examples/S-RIM/srim_my_daily/srim_hh_YYYYMMDD.csv` (+ `_dividend.csv`), `utf-8-sig`, 시가총액 내림차순.
-- 인자 `TRUE TRUE FALSE` = roeCheck, capitalCheck, inputCheck(FALSE=전체), 5번째(선택) = 워커 수.
+- 인자 `TRUE TRUE FALSE` = roeCheck, capitalCheck, inputCheck(FALSE=전체), 5번째(선택)=워커 수, 6번째(선택)=출력 파일명 날짜(`YYYYMMDD`, 미지정시 오늘). ⚠️ 크롤은 항상 FnGuide/네이버의 **현재 시점** 데이터를 가져온다 — 6번째 인자는 과거 시세를 재현하는 게 아니라 결과 파일의 날짜 라벨만 바꾼다(자정 걸친 실행·백필용).
+- `SrimDbUpdater.py [YYYYMMDD]` — 인자 없으면 오늘자 CSV를 오늘 날짜로 적재. 인자를 주면 그 날짜의 기존 CSV를 그 날짜로 재적재(검증: 20260610 → DB `last_update='2026-06-10'` 283종목 정상 반영).
 - 소규모 스모크테스트: `inputCheck=TRUE`로 주면 내장 ~40종목 샘플만 돌아 수 초 내 확인 가능 — `$PY getFnGuide.py FALSE FALSE TRUE 4`.
 - `$PY screen_metrics.py [워커수=8]` — S-RIM 필터 없이 전 종목 PER/PBR/EPS성장/PEG 원시 지표만 뽑는 별도 도구(마법공식/PEG 등 커스텀 스크린 베이스용). `./screen_metrics_YYYYMMDD.csv`로 저장, 검증: 2627종목 중 2473종목(94%) 수집.
 
