@@ -48,6 +48,13 @@ pystocklib — S-RIM(사경인 회계사) 기반 한국 주식 적정주가 평�
   - ROE는 이제 `EPS/BPS*100`으로 직접 계산(과거엔 FnGuide가 제공하는 ROE 값을 그대로 읽었음). RIM의 net_worth는 지배주주자본 총액 대신 **BPS(주당순자산)**를 쓰고 `total_shares=1`로 1주 기준 계산(자사주 수량 조정은 소스 소실로 생략, 영향 미미).
   - **소스가 사라져 근사/고정값으로 대체된 필드**: `is_cheap_comp_per`(동종업계 PER, 항상 True), `최대주주지분율`(None), `자기주식수`(항상 0), 배당주 판정 기준(과거 "최대주주지분 50%+ & 배당>0" → 현재 "배당수익률 1%+"). CSV의 `지배주주자본` 컬럼은 이제 **총액이 아니라 BPS 리스트**(컬럼명은 유지, 의미가 바뀜 — 하위 소비 코드 확인 시 주의).
   - `get_row_by_label`/`is_roe_reliable`(구 5년 Financial Highlight 대상)은 새 4년 gb=3 리스트에도 `[None]+roes` 형태로 감싸 재사용 중. gb=0 전용이던 옛 파싱 경로(`df[8]`,`df[10]`,`df[4]` 위치 인덱스)는 더 이상 쓰지 않음.
+- **⚠️ 2026-11 FnGuide 2차 개편(11/17경 배포) — 구 `/SVO2/*` 주소 전부 404, 위 소스 중 FnGuide 부분 재교체 (회귀 주의)**: `comp.fnguide.com/SVO2/ASP/SVD_*.asp`와 종목 리스트 `SVO2/common/lookup_data.asp`가 모두 "페이지 없음"이 되어 11/23 실행이 시작 직후 실패했다. **현재 소스:**
+  - 종목 리스트: `common.get_code_list_by_market` — **네이버 시총순위 API**(`m.stock.naver.com/api/stocks/marketValue/{KOSPI|KOSDAQ}`, 100개씩 페이지). 보통주만(`stockEndType=='stock'` & 코드 끝자리 0) 돌려주며 컬럼(`gb`,`mkt_gb`,`stk_gb`)·코드 형식(A+6자리)은 기존과 동일.
+  - EPS·BPS·DPS·PER·PBR·SPS: `reader_hh.get_invest_tables` — 새 `wcomp.fnguide.com/CompanyInfo/Invest?cmp_cd={6자리}` 페이지. 표는 빈 껍데기(JS 렌더)이고 값은 페이지 안 `invest.init({... invValueIndex: {...}})` **인라인 JSON**에 있어 `_extract_js_json`으로 파싱한다. 연도(12월) 컬럼 4개만 쓰고 마지막 누적분기 컬럼(`2026/09` 등)은 제외.
+  - **종목 지정은 반드시 `cmp_cd`**: 새 사이트는 `gicode`를 무시하고 항상 삼성전자를 돌려준다(6월 gb=0 버그와 같은 증상). `get_invest_tables`는 응답의 `cmp_cd`가 요청과 다르면 None을 돌려주는 가드가 있다 — 제거 금지.
+  - 시가총액: 투자지표 페이지에 현재 시총이 없어 네이버 polling 응답의 `marketValueFullRaw`를 억원으로 환산해 `_NAVER_MCAP` 캐시로 전달(`get_naver_snapshot`이 채움).
+  - `get_html_fnguide(code, gb)`의 구 주소는 여전히 죽어 있다(파이프라인 미사용, 보조 스크립트만 영향). 새 사이트의 다른 탭은 `/CompanyInfo/{Finance|FinanceRatio|Consensus|Information}?cmp_cd=`.
+- **요구수익률 k는 시작 시 검증**: `getFnguide.py`는 `get_5years_earning_rate()`(KIS레이팅 CSS 셀렉터)를 3회 재시도하고 `0<k<30` 숫자가 아니면 즉시 `RuntimeError`. k가 None이면 모든 종목이 `rep_roe < k`에서 예외로 조용히 탈락해 0건이 되므로 이 검증을 유지할 것.
 - **결과 출력은 CSV**: `getFnguide.py`는 `df.set_index('code')` 후 `to_csv`로 저장(code가 첫 컬럼, name은 일반 컬럼). 정렬 기준은 시가총액 내림차순(`market_cap`을 숫자로 변환 후 정렬). 과거 xlsx 출력 시절의 "커스텀 헤더 루프 한 칸 밀림" 함정은 CSV 전환으로 제거됨. 0종목이면 파일 미생성(`if data:`).
 - `SrimDbUpdater.py`는 CSV를 `pd.read_csv`로 읽고 `itertuples`로 `r.code`/`r.name` 등 접근. 컬럼명이 코드의 `r.xxx`와 일치해야 함.
 - **괴리율(disparity) 부호 = 상승여력**: `srim_calculator.get_srim_disparity`의 disparity = `((적정가/현재가) - 1) * 100`. 저평가(적정가>현재가)면 **+**, 고평가면 **−**. (과거 `(1 - 적정가/현재가)`로 부호가 뒤집혀 있던 버그 수정함 — 회귀 주의.)

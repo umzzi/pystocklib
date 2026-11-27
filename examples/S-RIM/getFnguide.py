@@ -93,8 +93,22 @@ if inputCheck == "TRUE":
 else:
     mdf = pd.concat([kospi, kosdaq])
 
-# k
-k = srim_reader.get_5years_earning_rate()
+# k (요구수익률, KIS레이팅에서 CSS 셀렉터로 스크래핑). 사이트 레이아웃 변경 등으로
+# None/이상값이 나오면 이후 모든 종목이 'rep_roe < k' 비교에서 조용히 예외로 탈락해
+# 전체 크롤링이 0건으로 끝나는 사고가 있었다(2026-06-27~07-10). 재시도 + 정합성
+# 검증으로 즉시 크게 실패시켜, 15~20분 허비 후 조용히 0건 나오는 상황을 방지한다.
+k = None
+for _attempt, _wait in enumerate([0, 3, 8]):
+    if _wait:
+        time.sleep(_wait)
+    k = srim_reader.get_5years_earning_rate()
+    if isinstance(k, (int, float)) and 0 < k < 30:
+        break
+    print(f"k 재시도 {_attempt+1}/3: 비정상값 {k!r}")
+    k = None
+if k is None:
+    raise RuntimeError("get_5years_earning_rate: 요구수익률(k) 조회 실패/이상값 — KIS레이팅 셀렉터 점검 필요")
+print(f"k(요구수익률) = {k}")
 
 data = []
 dividend = []

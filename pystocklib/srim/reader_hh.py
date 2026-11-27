@@ -1,3 +1,4 @@
+import json
 import numbers
 import re
 import time
@@ -72,7 +73,46 @@ def get_naver_snapshot(code):
     data = resp.json()['datas'][0]
     price = _to_float(data.get('closePrice'))
     volume = _to_float(data.get('accumulatedTradingVolume'))
+    # 시가총액(억원)을 캐시: FnGuide 2026-11 개편 후 투자지표 페이지에 '현재' 시총이 없어
+    # get_invest_tables가 이 값을 쓴다. (시그니처 유지를 위해 별도 캐시로 전달)
+    mv = _to_float(data.get('marketValueFullRaw'))
+    if mv:
+        _NAVER_MCAP[code] = round(mv / 1e8)
     return price, volume, data.get('stockName')
+
+
+_NAVER_MCAP = {}  # code -> 시가총액(억원). 스레드 병렬에서도 dict 대입은 GIL로 안전.
+
+
+def _get_fnguide_invest_html(code):
+    """새 FnGuide 투자지표 페이지 HTML(재시도 3회, 실패 시 None).
+
+    ⚠️ 종목 지정은 반드시 `cmp_cd` 파라미터다. 구 사이트의 `gicode`는 새 사이트가 무시하고
+    항상 삼성전자 페이지를 돌려준다(전 종목이 삼성전자 값이 되는 사고 방지)."""
+    url = f"https://wcomp.fnguide.com/CompanyInfo/Invest?cmp_cd={code.replace('A', '')}"
+    for attempt, wait in enumerate([0, 3, 8]):
+        if wait:
+            time.sleep(wait)
+        try:
+            resp = requests.get(url, headers=NAVER_UA, verify=False, timeout=15)
+            if resp.status_code == 200:
+                return resp.text
+            print(f"Error(재시도 {attempt+1}/3): {code} HTTP {resp.status_code}")
+        except requests.exceptions.RequestException as error:
+            print(f"Error(재시도 {attempt+1}/3):", error)
+    return None
+
+
+def _extract_js_json(html, key):
+    """`key: {...json...}` 형태의 인라인 JS 객체 값을 JSON으로 파싱해 돌려준다(없거나 깨지면 None)."""
+    m = re.search(r'\b' + re.escape(key) + r'\s*:\s*', html)
+    if not m:
+        return None
+    try:
+        obj, _ = json.JSONDecoder().raw_decode(html[m.end():])
+        return obj
+    except ValueError:
+        return None
 
 
 def _clean_invest_label(s):
@@ -97,44 +137,56 @@ def get_invest_tables(code):
     금융업종도 gb=1(재무제표)과 달리 동일 구조로 제공되어 별도 분기 없이 처리된다.
     리스트는 오래된→최근 연도 순.
     """
-    html = get_html_fnguide(code, 3)
+    # 2026-11 FnGuide 개편: 구 /SVO2/ASP/SVD_Invest.asp는 404, 새 /CompanyInfo/Invest 페이지는
+    # 표가 빈 껍데기이고 값은 페이지 안 invest.init({... invValueIndex: {...}}) 인라인 JSON에
+    # 들어 있다(JS가 렌더링). 별도 API 호출 없이 그 JSON을 파싱한다.
+    html = _get_fnguide_invest_html(code)
     if not html:
         return None
-    soup = BeautifulSoup(html, 'html.parser')
-    tables = []
-    for t in soup.find_all('table'):
-        if not t.find_all('tr'):
-            continue
-        try:
-            tables.append(pd.read_html(StringIO(str(t)))[0])
-        except (ValueError, IndexError):
-            continue
-    if len(tables) < 2:
+    # 안전장치: 응답 페이지의 종목코드(cmp_cd)가 요청과 다르면(서버가 파라미터를 무시하고
+    # 기본 종목=삼성전자를 준 경우) 잘못된 종목의 데이터이므로 버린다.
+    m = re.search(r"cmp_cd:\s*'([0-9A-Z]+)'", html)
+    if not m or m.group(1) != code.replace('A', ''):
         return None
-    price_tbl, per_share_tbl = tables[0], tables[1]
+    vi = _extract_js_json(html, 'invValueIndex')
+    if not vi:
+        return None
+    rows, header = vi.get('data') or [], vi.get('header') or []
+    # header: [{'YYMM': '2022/12', 'CD': 'VAL1'}, ... {'YYMM': '2026/09', 'CD': 'VAL5'}]
+    # 연도(12월 결산) 컬럼만 사용 — 마지막 '2026/09' 같은 누적 분기 컬럼은 기존과 같이 제외.
+    cols = [(h['CD'], h['YYMM']) for h in header if re.match(r'20\d\d/12', str(h.get('YYMM')))]
+    if not cols or not rows:
+        return None
+    years = [y for _, y in cols]
 
-    years = [c for c in per_share_tbl.columns if re.match(r'20\d\d/12', str(c))]
-    if not years:
+    def find(grp, label, lvl=None, prefix=False):
+        for r in rows:
+            nm = str(r.get('NM', '')).strip()
+            ok = nm.startswith(label) if prefix else nm == label
+            if r.get('GRP_CD') == grp and ok and (lvl is None or r.get('LVL') == lvl):
+                return r
         return None
 
-    def year_values(label):
-        row = get_invest_row(per_share_tbl, label)
+    def year_values(row):
         if row is None:
-            return [None] * len(years)
-        return [_to_float(row[y]) for y in years]
+            return [None] * len(cols)
+        return [_to_float(row.get(cd)) for cd, _ in cols]
 
-    mcap_row = get_invest_row(price_tbl, '시가총액')
-    market_cap = _to_float(mcap_row.iloc[-2]) if mcap_row is not None else None
+    if code not in _NAVER_MCAP:   # 보통은 get_naver_snapshot이 먼저 호출되어 채워져 있다
+        try:
+            get_naver_snapshot(code)
+        except Exception:
+            pass
 
     return {
         'years': years,
-        'eps_list': year_values('EPS(원)'),
-        'bps_list': year_values('BPS(원)'),
-        'dps_list': year_values('DPS(보통주'),
-        'sps_list': year_values('SPS(원)'),
-        'per_list': year_values('PER'),
-        'pbr_list': year_values('PBR'),
-        'market_cap': market_cap,
+        'eps_list': year_values(find(1, 'EPS', lvl=1)),                    # Per Share
+        'bps_list': year_values(find(1, 'BPS', lvl=1)),
+        'dps_list': year_values(find(2, 'DPS(보통주', prefix=True)),         # Dividends
+        'sps_list': year_values(find(1, 'SPS', lvl=1)),
+        'per_list': year_values(find(3, 'PER', lvl=1)),                    # Multiples
+        'pbr_list': year_values(find(3, 'PBR', lvl=1)),
+        'market_cap': _NAVER_MCAP.get(code),
     }
 
 
